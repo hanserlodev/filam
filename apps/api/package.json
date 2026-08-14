@@ -5,6 +5,7 @@
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
+    "postinstall": "prisma generate",
     "start": "node dist/src/main",
     "start:prod": "node dist/src/main",
     "lint": "eslint \"src/**/*.ts\" --fix",
