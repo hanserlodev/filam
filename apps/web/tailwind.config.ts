@@ -20,6 +20,7 @@ const config: Config = {
           700: "#1e40af",
           800: "#1e3a8a",
           900: "#172554",
+          950: "#102a52",
         },
         secondary: {
           50: "#fffbeb",
@@ -44,7 +45,64 @@ const config: Config = {
           700: "#334155",
           800: "#1e293b",
           900: "#0f172a",
+          950: "#020617",
         },
+      },
+      fontFamily: {
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        sm: "0 1px 2px 0 rgb(15 23 42 / 0.05)",
+        DEFAULT: "0 1px 3px 0 rgb(15 23 42 / 0.1), 0 1px 2px -1px rgb(15 23 42 / 0.1)",
+        md: "0 4px 6px -1px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.1)",
+        lg: "0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1)",
+        xl: "0 20px 25px -5px rgb(15 23 42 / 0.1), 0 8px 10px -6px rgb(15 23 42 / 0.1)",
+        "2xl": "0 25px 50px -12px rgb(15 23 42 / 0.25)",
+        glow: "0 0 40px -8px rgb(37 99 235 / 0.5)",
+        "glow-amber": "0 0 40px -8px rgb(245 158 11 / 0.5)",
+      },
+      backgroundImage: {
+        "grid-slate":
+          "linear-gradient(to right, rgb(15 23 42 / 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgb(15 23 42 / 0.05) 1px, transparent 1px)",
+        "grid-light":
+          "linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px), linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px)",
+        "hero-gradient":
+          "radial-gradient(ellipse at top left, rgb(37 99 235 / 0.25), transparent 55%), radial-gradient(ellipse at bottom right, rgb(245 158 11 / 0.12), transparent 50%)",
+      },
+      keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+        "pulse-ring": {
+          "0%": { transform: "scale(1)", opacity: "0.6" },
+          "100%": { transform: "scale(1.8)", opacity: "0" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.7s ease-out both",
+        "fade-in": "fade-in 0.5s ease-out both",
+        float: "float 6s ease-in-out infinite",
+        marquee: "marquee 30s linear infinite",
+        "pulse-ring": "pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        shimmer: "shimmer 2.5s linear infinite",
       },
     },
   },
