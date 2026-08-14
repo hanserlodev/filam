@@ -21,7 +21,9 @@ async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  // El backend (NestJS) monta todas las rutas bajo el prefijo global "/api"
+  const url = `${API_URL}/api${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, { ...options, headers });
 
   if (!res.ok) {
     let message = `Error ${res.status}`;
