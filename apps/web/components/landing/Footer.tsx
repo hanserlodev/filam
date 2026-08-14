@@ -2,8 +2,9 @@ import Link from "next/link";
 import {
   Phone,
   MapPin,
+  Mail,
   CreditCard,
-  Facebook,
+  Globe,
   Instagram,
   ShieldCheck,
 } from "lucide-react";
@@ -12,6 +13,9 @@ import Logo from "./Logo";
 interface FooterProps {
   direccion?: string | null;
   telefono?: string | null;
+  email?: string | null;
+  web?: string | null;
+  instagram?: string | null;
   metodosPago?: string[];
   ruc?: string | null;
 }
@@ -19,6 +23,9 @@ interface FooterProps {
 export default function Footer({
   direccion,
   telefono,
+  email,
+  web,
+  instagram,
   metodosPago,
   ruc,
 }: FooterProps) {
@@ -28,6 +35,7 @@ export default function Footer({
     tarjeta: "Tarjeta",
     yape: "Yape",
     plin: "Plin",
+    instagramHandle: (instagram || "@filamcentroplast").replace(/^@/, ""),
   };
 
   return (
@@ -81,17 +89,31 @@ export default function Footer({
                   </a>
                 </li>
               )}
+              {email && (
+                <li className="flex items-center gap-3 text-steel-300/70">
+                  <Mail size={18} className="text-secondary-400 shrink-0" />
+                  <a href={`mailto:${email}`} className="hover:text-white transition-colors break-all">
+                    {email}
+                  </a>
+                </li>
+              )}
             </ul>
             <div className="flex gap-3 mt-5">
+              {web && (
+                <a
+                  href={web}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center hover:bg-primary-600 transition-colors"
+                  aria-label="Sitio web"
+                >
+                  <Globe size={16} />
+                </a>
+              )}
               <a
-                href="#"
-                className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center hover:bg-primary-600 transition-colors"
-                aria-label="Facebook"
-              >
-                <Facebook size={16} />
-              </a>
-              <a
-                href="#"
+                href={`https://instagram.com/${(instagram || "@filamcentroplast").replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center hover:bg-primary-600 transition-colors"
                 aria-label="Instagram"
               >

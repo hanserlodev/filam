@@ -1,4 +1,4 @@
-import { Star, Quote, Clock, MapPin, MessageCircle } from "lucide-react";
+import { Star, Quote, Clock, MapPin, MessageCircle, Mail, Globe, Instagram } from "lucide-react";
 import Link from "next/link";
 
 const TESTIMONIOS = [
@@ -34,9 +34,18 @@ const HORARIOS = [
 interface Props {
   direccion?: string | null;
   telefono?: string | null;
+  email?: string | null;
+  web?: string | null;
+  instagram?: string | null;
 }
 
-export default function TestimoniosYContacto({ direccion, telefono }: Props) {
+export default function TestimoniosYContacto({
+  direccion,
+  telefono,
+  email,
+  web,
+  instagram,
+}: Props) {
   return (
     <>
       {/* Testimonios */}
@@ -90,14 +99,14 @@ export default function TestimoniosYContacto({ direccion, telefono }: Props) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="bg-steel-50/60 rounded-2xl p-7 border border-steel-100">
               <div className="w-12 h-12 bg-primary-600 text-white rounded-xl flex items-center justify-center mb-4">
                 <MapPin size={22} />
               </div>
               <h3 className="font-semibold text-steel-900 mb-2">Dirección</h3>
               <p className="text-sm text-steel-500 leading-relaxed">
-                {direccion || "Av. Los Ferreteros 123, Lima"}
+                {direccion || "Carretera Central KM 10.5 - Hualhuas, Huancayo"}
               </p>
             </div>
 
@@ -110,12 +119,55 @@ export default function TestimoniosYContacto({ direccion, telefono }: Props) {
                 href={telefono ? `tel:${telefono.replace(/[^0-9+]/g, "")}` : "#"}
                 className="text-sm text-steel-500 hover:text-primary-600 transition-colors"
               >
-                {telefono || "(01) 555-1234"}
+                {telefono || "950 307 510"}
               </a>
             </div>
 
             <div className="bg-steel-50/60 rounded-2xl p-7 border border-steel-100">
               <div className="w-12 h-12 bg-primary-600 text-white rounded-xl flex items-center justify-center mb-4">
+                <Mail size={22} />
+              </div>
+              <h3 className="font-semibold text-steel-900 mb-2">Email</h3>
+              <a
+                href={email ? `mailto:${email}` : "#"}
+                className="text-sm text-steel-500 hover:text-primary-600 transition-colors break-all"
+              >
+                {email || "ventas@filamcentroplast.com"}
+              </a>
+            </div>
+
+            <div className="bg-steel-50/60 rounded-2xl p-7 border border-steel-100">
+              <div className="w-12 h-12 bg-secondary-500 text-white rounded-xl flex items-center justify-center mb-4">
+                <Globe size={22} />
+              </div>
+              <h3 className="font-semibold text-steel-900 mb-2">Sitio web</h3>
+              <a
+                href={web || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-steel-500 hover:text-primary-600 transition-colors break-all"
+              >
+                {web ? web.replace(/^https?:\/\//, "") : "filamcentroplast.com"}
+              </a>
+            </div>
+
+            <div className="bg-steel-50/60 rounded-2xl p-7 border border-steel-100">
+              <div className="w-12 h-12 bg-primary-600 text-white rounded-xl flex items-center justify-center mb-4">
+                <Instagram size={22} />
+              </div>
+              <h3 className="font-semibold text-steel-900 mb-2">Instagram</h3>
+              <a
+                href={`https://instagram.com/${(instagram || "@filamcentroplast").replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-steel-500 hover:text-primary-600 transition-colors"
+              >
+                {instagram || "@filamcentroplast"}
+              </a>
+            </div>
+
+            <div className="bg-steel-50/60 rounded-2xl p-7 border border-steel-100">
+              <div className="w-12 h-12 bg-secondary-500 text-white rounded-xl flex items-center justify-center mb-4">
                 <Clock size={22} />
               </div>
               <h3 className="font-semibold text-steel-900 mb-3">Horario</h3>

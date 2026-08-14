@@ -22,6 +22,9 @@ export interface Catalogo {
     ruc: string | null;
     direccion: string | null;
     telefono: string | null;
+    email: string | null;
+    web: string | null;
+    instagram: string | null;
     metodos_pago: string[];
   };
   categorias: Categoria[];

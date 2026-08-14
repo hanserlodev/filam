@@ -64,11 +64,17 @@ export default function LandingPage() {
       <TestimoniosYContacto
         direccion={negocio?.direccion}
         telefono={negocio?.telefono}
+        email={negocio?.email}
+        web={negocio?.web}
+        instagram={negocio?.instagram}
       />
 
       <Footer
         direccion={negocio?.direccion}
         telefono={negocio?.telefono}
+        email={negocio?.email}
+        web={negocio?.web}
+        instagram={negocio?.instagram}
         metodosPago={negocio?.metodos_pago}
         ruc={negocio?.ruc}
       />
