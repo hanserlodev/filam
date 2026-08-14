@@ -13,7 +13,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "db:setup": "prisma migrate dev && prisma db seed"
+    "db:setup": "prisma migrate dev && prisma db seed",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "dependencies": {
     "@nestjs/cli": "^10.4.0",
@@ -37,7 +40,15 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@nestjs/testing": "^11.2.0",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^7.2.1",
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.12"
+  },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   }

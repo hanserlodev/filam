@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@prisma/client": ["./test/mocks/prisma-client.ts"]
+    }
+  },
+  "include": ["src/**/*.spec.ts", "test/**/*.ts"]
+}
