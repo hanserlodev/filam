@@ -11,6 +11,7 @@ import { ComprasModule } from "./compras/compras.module";
 import { ClientesModule } from "./clientes/clientes.module";
 import { ReportesModule } from "./reportes/reportes.module";
 import { ConfiguracionModule } from "./configuracion/configuracion.module";
+import { CatalogoModule } from "./catalogo/catalogo.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ConfiguracionModule } from "./configuracion/configuracion.module";
     ClientesModule,
     ReportesModule,
     ConfiguracionModule,
+    CatalogoModule,
   ],
   controllers: [AppController],
 })
