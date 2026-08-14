@@ -1,22 +1,22 @@
 import {
   Truck,
-  Tag,
   Headphones,
   ShieldCheck,
   RefreshCcw,
   Factory,
+  Store,
 } from "lucide-react";
 
 const BENEFICIOS = [
   {
     icon: Factory,
-    title: "Fabricación propia",
-    desc: "Tuberías PVC producidas en nuestra planta de Huancayo",
+    title: "Fábrica de tuberías PVC",
+    desc: "Producción propia de tubería y accesorios en nuestra planta de Huancayo",
   },
   {
-    icon: Tag,
-    title: "Precios de fábrica",
-    desc: "El mejor costo porque tú compras directo al productor",
+    icon: Store,
+    title: "Ferretería completa",
+    desc: "Herramientas, materiales y todo lo necesario para tu obra y hogar",
   },
   {
     icon: ShieldCheck,

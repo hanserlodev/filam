@@ -1,11 +1,11 @@
 import {
-  Award,
   Users,
   Factory,
   Hammer,
   TrendingUp,
   HeartHandshake,
   Microscope,
+  Store,
 } from "lucide-react";
 
 const RAZONES = [
@@ -20,9 +20,9 @@ const RAZONES = [
     desc: "Cada lote pasa por pruebas de presión y norma técnica antes de salir de fábrica.",
   },
   {
-    icon: Hammer,
-    title: "Venta directa de fábrica",
-    desc: "Trabajamos con maestros, empresas constructoras y distribuidores sin intermediarios.",
+    icon: Store,
+    title: "Ferretería completa",
+    desc: "Además de tubería, contamos con herramientas, materiales y todo lo que tu obra necesita.",
   },
   {
     icon: TrendingUp,
@@ -30,9 +30,9 @@ const RAZONES = [
     desc: "Al producir nosotros mismos, ofrecemos el mejor costo del mercado.",
   },
   {
-    icon: Users,
-    title: "Stock permanente",
-    desc: "Línea completa de tuberías y accesorios siempre disponible para tu obra.",
+    icon: Hammer,
+    title: "Venta directa",
+    desc: "Trabajamos con maestros, empresas constructoras y distribuidores sin intermediarios.",
   },
   {
     icon: HeartHandshake,
@@ -64,12 +64,12 @@ export default function WhyUs() {
         <div className="max-w-2xl mb-14">
           <p className="section-title text-secondary-400">Por qué elegirnos</p>
           <h2 className="section-heading !text-white">
-            Tubería PVC fabricada por nosotros, calidad garantizada
+            Fábrica de tuberías PVC y ferretería completa
           </h2>
           <p className="mt-4 text-steel-300 leading-relaxed">
-            FILAM no es una simple distribuidora: producimos nuestras propias
-            tuberías y accesorios PVC en Huancayo. Por eso podemos asegurar
-            calidad, precio y abastecimiento en cada proyecto.
+            FILAM produce sus propias tuberías y accesorios PVC en Huancayo y
+            opera una ferretería completa. Por eso puedes encontrar calidad de
+            fábrica y todo lo que tu obra necesita, en un solo lugar.
           </p>
         </div>
 

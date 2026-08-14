@@ -71,13 +71,13 @@ export default function Hero({
                   />
                 </svg>
               </span>{" "}
-              de alta calidad.
+              y vendemos de todo.
             </h1>
 
             <p className="text-lg text-primary-100/90 leading-relaxed mb-9 max-w-xl">
               {negocioNombre}. Producción propia de tuberías y accesorios PVC
-              bajo norma técnica, con stock permanente y precios de fábrica.
-              También contamos con herramientas y materiales para tu obra.
+              bajo norma técnica, y ferretería completa con herramientas,
+              materiales y todo para tu obra — todo con precios de fábrica.
             </p>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -99,11 +99,11 @@ export default function Hero({
             <div className="flex flex-wrap items-center gap-6 mt-10">
               <div className="flex items-center gap-2 text-sm text-primary-100/80">
                 <Factory size={18} className="text-secondary-400" />
-                Producción propia
+                Fábrica de tuberías PVC
               </div>
               <div className="flex items-center gap-2 text-sm text-primary-100/80">
-                <BadgeCheck size={18} className="text-secondary-400" />
-                Bajo norma técnica
+                <Wrench size={18} className="text-secondary-400" />
+                Ferretería completa
               </div>
               <div className="flex items-center gap-2 text-sm text-primary-100/80">
                 <Users size={18} className="text-secondary-400" />
@@ -142,7 +142,7 @@ export default function Hero({
                 </div>
                 <div>
                   <p className="font-semibold text-sm">
-                    Fábrica y venta directa de tubería PVC
+                    Fábrica y ferretería en un solo lugar
                   </p>
                   <p className="text-xs text-primary-100/60 mt-0.5 flex items-center gap-1.5">
                     <Sparkles size={12} className="text-secondary-400" />

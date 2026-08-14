@@ -24,7 +24,7 @@ export default function Logo({ size = "md" }: LogoProps) {
           FILAM
         </span>
         <span className="text-[11px] font-medium text-steel-400 uppercase tracking-widest">
-          Fábrica de Tuberías PVC
+          Tuberías PVC & Ferretería
         </span>
       </div>
     </Link>

@@ -39,9 +39,10 @@ export default function Footer({
               <Logo />
             </div>
             <p className="text-sm text-steel-300/70 leading-relaxed mt-5">
-              Fábrica de tuberías y accesorios PVC de alta calidad en Huancayo.
-              Producción bajo norma técnica con precios de fábrica para maestros,
-              empresas y distribuidores.
+              Fábrica de tuberías y accesorios PVC de alta calidad en Huancayo,
+              con ferretería completa para tu obra. Producción bajo norma
+              técnica y precios de fábrica para maestros, empresas y
+              distribuidores.
             </p>
             {ruc && (
               <p className="text-xs text-steel-400 mt-4">RUC: {ruc}</p>

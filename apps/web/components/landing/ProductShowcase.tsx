@@ -43,7 +43,7 @@ export default function ProductShowcase({
           <h2 className="section-heading">Nuestros productos</h2>
           <p className="mt-4 text-steel-500 leading-relaxed">
             Tuberías y accesorios PVC fabricados por FILAM, además de
-            herramientas y materiales de construcción. Stock actualizado en
+            herramientas y materiales de la ferretería. Stock actualizado en
             tiempo real.
           </p>
         </div>
