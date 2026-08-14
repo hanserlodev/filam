@@ -4,39 +4,39 @@ import {
   Headphones,
   ShieldCheck,
   RefreshCcw,
-  CreditCard,
+  Factory,
 } from "lucide-react";
 
 const BENEFICIOS = [
   {
-    icon: Truck,
-    title: "Despacho rápido",
-    desc: "Entrega el mismo día en Lima y alrededores",
+    icon: Factory,
+    title: "Fabricación propia",
+    desc: "Tuberías PVC producidas en nuestra planta de Huancayo",
   },
   {
     icon: Tag,
-    title: "Mejores precios",
-    desc: "Precios de mayorista en todos nuestros productos",
+    title: "Precios de fábrica",
+    desc: "El mejor costo porque tú compras directo al productor",
   },
   {
     icon: ShieldCheck,
-    title: "Productos originales",
-    desc: "Trabajamos solo con marcas certificadas",
+    title: "Calidad garantizada",
+    desc: "Cumplimos norma técnica NTP en toda la producción",
   },
   {
-    icon: CreditCard,
-    title: "Pago flexible",
-    desc: "Efectivo, tarjeta, Yape y Plin",
+    icon: Truck,
+    title: "Despacho y envíos",
+    desc: "Atendemos pedidos para todo Junín y despachos a nivel nacional",
   },
   {
     icon: Headphones,
     title: "Asesoría experta",
-    desc: "Te ayudamos a elegir el producto correcto",
+    desc: "Te ayudamos a elegir el diámetro y accesorios correctos",
   },
   {
     icon: RefreshCcw,
-    title: "Cambios garantizados",
-    desc: "Cambiamos productos en mal estado sin problema",
+    title: "Garantía real",
+    desc: "Cambiamos cualquier producto con falla de fabricación",
   },
 ];
 

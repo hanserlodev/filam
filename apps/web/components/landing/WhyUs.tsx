@@ -1,60 +1,59 @@
 import {
   Award,
   Users,
-  Building2,
+  Factory,
   Hammer,
   TrendingUp,
   HeartHandshake,
+  Microscope,
 } from "lucide-react";
 
 const RAZONES = [
   {
-    icon: Award,
-    title: "Trayectoria comprobada",
-    desc: "Años abasteciendo a maestros de obra, empresas constructoras y familias.",
+    icon: Factory,
+    title: "Producción propia",
+    desc: "Fabricamos nuestras tuberías PVC en planta, garantizando calidad y abastecimiento constante.",
+  },
+  {
+    icon: Microscope,
+    title: "Control de calidad",
+    desc: "Cada lote pasa por pruebas de presión y norma técnica antes de salir de fábrica.",
   },
   {
     icon: Hammer,
-    title: "Asesoría técnica real",
-    desc: "Nuestro equipo te orienta sobre el material correcto para cada trabajo.",
-  },
-  {
-    icon: Building2,
-    title: "Venta por mayor y menor",
-    desc: "Atendemos proyectos grandes y compras del día a día por igual.",
+    title: "Venta directa de fábrica",
+    desc: "Trabajamos con maestros, empresas constructoras y distribuidores sin intermediarios.",
   },
   {
     icon: TrendingUp,
-    title: "Precios competitivos",
-    desc: "Negociamos directo con distribuidores para ofrecerte el mejor costo.",
+    title: "Precios de fábrica",
+    desc: "Al producir nosotros mismos, ofrecemos el mejor costo del mercado.",
   },
   {
     icon: Users,
-    title: "Atención personalizada",
-    desc: "Conocemos a nuestros clientes y sus proyectos uno a uno.",
+    title: "Stock permanente",
+    desc: "Línea completa de tuberías y accesorios siempre disponible para tu obra.",
   },
   {
     icon: HeartHandshake,
     title: "Compromiso con tu obra",
-    desc: "Si el producto no cumple, lo cambiamos sin complicaciones.",
+    desc: "Asesoría técnica gratuita y garantía en todos nuestros productos.",
   },
 ];
 
 const MARCAS = [
-  "TRAMONTINA",
-  "STANLEY",
-  "3M",
-  "SOL",
-  "BLACK+DECKER",
-  "INDECO",
-  "TEKNO",
-  "FORTREX",
+  "FILAM PVC",
+  "TUBERÍAS PVC",
+  "DESAGÜE",
+  "PRESIÓN",
+  "ACCESORIOS",
+  "CALIDAD NTP",
 ];
 
 const STATS = [
-  { value: "500+", label: "Clientes atendidos" },
-  { value: "1,200+", label: "Productos disponibles" },
-  { value: "30+", label: "Marcas de calidad" },
+  { value: "1,200+", label: "Clientes atendidos" },
+  { value: "15+", label: "Líneas de tubería y accesorios" },
+  { value: "100%", label: "Producción con control de calidad" },
   { value: "98%", label: "Clientes satisfechos" },
 ];
 
@@ -65,12 +64,12 @@ export default function WhyUs() {
         <div className="max-w-2xl mb-14">
           <p className="section-title text-secondary-400">Por qué elegirnos</p>
           <h2 className="section-heading !text-white">
-            La ferretería que tu obra necesita
+            Tubería PVC fabricada por nosotros, calidad garantizada
           </h2>
           <p className="mt-4 text-steel-300 leading-relaxed">
-            No somos solo una tienda: somos el aliado técnico de cada proyecto.
-            Trabajamos junto a ti para que tu construcción salga bien, a tiempo
-            y al mejor precio.
+            FILAM no es una simple distribuidora: producimos nuestras propias
+            tuberías y accesorios PVC en Huancayo. Por eso podemos asegurar
+            calidad, precio y abastecimiento en cada proyecto.
           </p>
         </div>
 

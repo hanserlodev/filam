@@ -10,23 +10,25 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "FILAM — Ferretería Industrial",
+    default: "FILAM — Fábrica de Tuberías PVC",
     template: "%s | FILAM",
   },
   description:
-    "Ferretería industrial FILAM: herramientas, materiales de construcción, fijaciones, pintura e insumos eléctricos. Todo para construir y reparar.",
+    "FILAM fabrica tuberías y accesorios PVC de alta calidad en Huancayo. Precios de fábrica, producción bajo norma técnica y despacho para todo el Perú.",
   keywords: [
-    "ferretería",
+    "tuberías PVC",
     "FILAM",
-    "herramientas",
-    "materiales de construcción",
-    "pintura",
-    "ferretería industrial",
+    "fábrica PVC",
+    "tubos desagüe",
+    "tubos presión",
+    "accesorios PVC",
+    "Huancayo",
+    "Hualhuas",
   ],
   openGraph: {
-    title: "FILAM — Ferretería Industrial",
+    title: "FILAM — Fábrica de Tuberías PVC",
     description:
-      "Todo lo que necesitas para construir y reparar: herramientas, materiales, fijaciones y más.",
+      "Tuberías y accesorios PVC de alta calidad, fabricados en Huancayo con precios de fábrica.",
     type: "website",
     locale: "es_PE",
   },

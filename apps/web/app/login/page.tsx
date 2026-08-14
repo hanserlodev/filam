@@ -38,7 +38,7 @@ export default function LoginPage() {
             <HardHat size={32} className="text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">FILAM</h1>
-          <p className="text-primary-200">Ferretería Industrial</p>
+          <p className="text-primary-200">Fábrica de Tuberías PVC</p>
         </div>
 
         <div className="card p-8">

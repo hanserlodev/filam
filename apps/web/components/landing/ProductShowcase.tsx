@@ -42,8 +42,9 @@ export default function ProductShowcase({
           <p className="section-title">Catálogo</p>
           <h2 className="section-heading">Nuestros productos</h2>
           <p className="mt-4 text-steel-500 leading-relaxed">
-            Catálogo actualizado con stock en tiempo real. Si necesitas algo
-            que no encuentras, contáctanos y lo conseguimos.
+            Tuberías y accesorios PVC fabricados por FILAM, además de
+            herramientas y materiales de construcción. Stock actualizado en
+            tiempo real.
           </p>
         </div>
 

@@ -32,7 +32,7 @@ export default function LandingPage() {
       <Navbar telefono={negocio?.telefono} />
 
       <Hero
-        negocioNombre={negocio?.nombre || "FILAM Ferretería Industrial"}
+        negocioNombre={negocio?.nombre || "FILAM Fábrica de Tuberías PVC"}
         totalProductos={catalogo?.total_productos ?? 0}
         totalCategorias={catalogo?.categorias.length ?? 0}
       />

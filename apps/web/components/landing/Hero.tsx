@@ -11,6 +11,7 @@ import {
   Building2,
   Users,
   Sparkles,
+  Factory,
 } from "lucide-react";
 
 interface HeroProps {
@@ -25,10 +26,10 @@ export default function Hero({
   totalCategorias,
 }: HeroProps) {
   const stats = [
-    { value: `${totalProductos}+`, label: "Productos en stock", icon: Package },
+    { value: `${totalProductos}+`, label: "Productos disponibles", icon: Package },
     { value: `${totalCategorias}`, label: "Categorías", icon: Wrench },
-    { value: "100%", label: "Garantía de marca", icon: BadgeCheck },
-    { value: "24h", label: "Despacho", icon: Truck },
+    { value: "100%", label: "Calidad certificada", icon: BadgeCheck },
+    { value: "24h", label: "Despacho rápido", icon: Truck },
   ];
 
   return (
@@ -54,9 +55,9 @@ export default function Hero({
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6">
-              Todo para{" "}
+              Fabricamos{" "}
               <span className="relative inline-block">
-                <span className="text-secondary-400">construir</span>
+                <span className="text-secondary-400">tuberías PVC</span>
                 <svg
                   className="absolute -bottom-2 left-0 w-full h-3 text-secondary-500/40"
                   viewBox="0 0 200 12"
@@ -70,13 +71,13 @@ export default function Hero({
                   />
                 </svg>
               </span>{" "}
-              y reparar.
+              de alta calidad.
             </h1>
 
             <p className="text-lg text-primary-100/90 leading-relaxed mb-9 max-w-xl">
-              {negocioNombre}. Herramientas, materiales de construcción,
-              fijaciones, pintura e insumos eléctricos de las mejores marcas, al
-              mejor precio y con asesoría experta.
+              {negocioNombre}. Producción propia de tuberías y accesorios PVC
+              bajo norma técnica, con stock permanente y precios de fábrica.
+              También contamos con herramientas y materiales para tu obra.
             </p>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -97,16 +98,16 @@ export default function Hero({
 
             <div className="flex flex-wrap items-center gap-6 mt-10">
               <div className="flex items-center gap-2 text-sm text-primary-100/80">
-                <ShieldCheck size={18} className="text-secondary-400" />
-                Compra segura
+                <Factory size={18} className="text-secondary-400" />
+                Producción propia
               </div>
               <div className="flex items-center gap-2 text-sm text-primary-100/80">
                 <BadgeCheck size={18} className="text-secondary-400" />
-                Marcas originales
+                Bajo norma técnica
               </div>
               <div className="flex items-center gap-2 text-sm text-primary-100/80">
                 <Users size={18} className="text-secondary-400" />
-                +500 clientes
+                +1,200 clientes
               </div>
             </div>
           </div>
@@ -141,11 +142,11 @@ export default function Hero({
                 </div>
                 <div>
                   <p className="font-semibold text-sm">
-                    Atendemos a maestros, empresas y hogares
+                    Fábrica y venta directa de tubería PVC
                   </p>
                   <p className="text-xs text-primary-100/60 mt-0.5 flex items-center gap-1.5">
                     <Sparkles size={12} className="text-secondary-400" />
-                    Asesoría técnica gratuita
+                    Precios de fábrica para maestros y empresas
                   </p>
                 </div>
               </div>

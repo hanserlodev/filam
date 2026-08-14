@@ -39,8 +39,9 @@ export default function Footer({
               <Logo />
             </div>
             <p className="text-sm text-steel-300/70 leading-relaxed mt-5">
-              Ferretería industrial dedicada a abastecer a maestros, empresas y
-              hogares con herramientas y materiales de construcción de calidad.
+              Fábrica de tuberías y accesorios PVC de alta calidad en Huancayo.
+              Producción bajo norma técnica con precios de fábrica para maestros,
+              empresas y distribuidores.
             </p>
             {ruc && (
               <p className="text-xs text-steel-400 mt-4">RUC: {ruc}</p>
@@ -126,7 +127,7 @@ export default function Footer({
       <div className="border-t border-white/10">
         <div className="container-site py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-steel-400">
           <p>
-            © {new Date().getFullYear()} FILAM Ferretería Industrial. Todos los
+            © {new Date().getFullYear()} FILAM Fábrica de Tuberías PVC. Todos los
             derechos reservados.
           </p>
           <p>Punto de venta FILAM · v1.0.0</p>

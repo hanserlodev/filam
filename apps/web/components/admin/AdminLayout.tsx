@@ -78,7 +78,7 @@ export default function AdminLayout({
             </div>
             <div>
               <h1 className="text-lg font-bold">FILAM</h1>
-              <p className="text-xs text-white/70">Ferretería Industrial</p>
+              <p className="text-xs text-white/70">Fábrica de Tuberías PVC</p>
             </div>
           </div>
           <button
