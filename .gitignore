@@ -1,0 +1,22 @@
+# Dependencias
+node_modules/
+
+# Builds
+.next/
+dist/
+build/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Prisma
+apps/api/prisma/*.db

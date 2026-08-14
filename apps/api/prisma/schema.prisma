@@ -1,0 +1,205 @@
+// Prisma schema — FILAM POS Ferretería
+// Fuente de verdad: ferreteria-plan-completo.md sección 5
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum RolUsuario {
+  cajero
+  administrador
+}
+
+enum UnidadMedida {
+  unidad
+  kg
+  metro
+  litro
+  caja
+}
+
+enum EstadoCaja {
+  abierta
+  cerrada
+}
+
+enum TipoComprobante {
+  nota_venta
+  boleta
+  factura
+}
+
+enum MetodoPago {
+  efectivo
+  tarjeta
+  transferencia
+  yape
+  plin
+}
+
+enum FormatoImpresion {
+  termica
+  a4
+  boleta_propia
+}
+
+model Usuario {
+  id        String     @id @default(uuid())
+  nombre    String     @db.VarChar(150)
+  email     String     @unique @db.VarChar(150)
+  rol       RolUsuario @default(cajero)
+  activo    Boolean    @default(true)
+  creado_en DateTime   @default(now()) @db.Timestamptz(6)
+
+  cajaSesiones CajaSesion[]
+  ventas       Venta[]
+  compras      Compra[]
+
+  @@map("usuarios")
+}
+
+model Categoria {
+  id     String @id @default(uuid())
+  nombre String @unique @db.VarChar(100)
+  orden  Int    @default(0)
+
+  productos Producto[]
+
+  @@map("categorias")
+}
+
+model Producto {
+  id            String          @id @default(uuid())
+  categoria_id  String?         @map("categoria_id")
+  categoria     Categoria?      @relation(fields: [categoria_id], references: [id])
+  nombre        String          @db.VarChar(200)
+  codigo_barras String?         @unique @db.VarChar(50)
+  sku           String?         @unique @db.VarChar(50)
+  precio        Decimal         @db.Decimal(10, 2)
+  costo         Decimal?        @db.Decimal(10, 2)
+  stock         Decimal         @default(0) @db.Decimal(10, 2)
+  unidad_medida UnidadMedida    @default(unidad)
+  stock_minimo  Decimal         @default(5) @db.Decimal(10, 2)
+  imagen_url    String?
+  activo        Boolean         @default(true)
+  atributos     Json            @default("{}")
+  creado_en     DateTime        @default(now()) @db.Timestamptz(6)
+  actualizado_en DateTime       @updatedAt @db.Timestamptz(6)
+
+  ventaItems  VentaItem[]
+  compraItems CompraItem[]
+
+  @@index([categoria_id])
+  @@index([codigo_barras])
+  @@map("productos")
+}
+
+model CajaSesion {
+  id             String      @id @default(uuid())
+  usuario_id     String      @map("usuario_id")
+  usuario        Usuario     @relation(fields: [usuario_id], references: [id])
+  monto_apertura Decimal     @db.Decimal(10, 2)
+  monto_cierre   Decimal?    @db.Decimal(10, 2)
+  diferencia     Decimal?    @db.Decimal(10, 2)
+  abierta_en     DateTime    @default(now()) @db.Timestamptz(6)
+  cerrada_en     DateTime?   @db.Timestamptz(6)
+  estado         EstadoCaja  @default(abierta)
+
+  ventas Venta[]
+
+  @@index([usuario_id])
+  @@map("caja_sesiones")
+}
+
+model Cliente {
+  id        String   @id @default(uuid())
+  nombre    String?  @db.VarChar(150)
+  dni_ruc   String?  @db.VarChar(20)
+  telefono  String?  @db.VarChar(20)
+  creado_en DateTime @default(now()) @db.Timestamptz(6)
+
+  ventas Venta[]
+
+  @@map("clientes")
+}
+
+model Venta {
+  id                String           @id @default(uuid())
+  caja_sesion_id    String           @map("caja_sesion_id")
+  cajaSesion        CajaSesion       @relation(fields: [caja_sesion_id], references: [id])
+  cliente_id        String?          @map("cliente_id")
+  cliente           Cliente?         @relation(fields: [cliente_id], references: [id])
+  vendedor_id       String           @map("vendedor_id")
+  vendedor          Usuario          @relation(fields: [vendedor_id], references: [id])
+  tipo_comprobante  TipoComprobante  @default(nota_venta)
+  metodo_pago       MetodoPago
+  total             Decimal          @db.Decimal(10, 2)
+  comprobante_ref   String?
+  formato_impresion FormatoImpresion @default(termica)
+  creado_en         DateTime         @default(now()) @db.Timestamptz(6)
+
+  items VentaItem[]
+
+  @@index([caja_sesion_id])
+  @@index([creado_en])
+  @@map("ventas")
+}
+
+model VentaItem {
+  id             String   @id @default(uuid())
+  venta_id       String   @map("venta_id")
+  venta          Venta    @relation(fields: [venta_id], references: [id])
+  producto_id    String   @map("producto_id")
+  producto       Producto @relation(fields: [producto_id], references: [id])
+  cantidad       Decimal  @db.Decimal(10, 2)
+  precio_unitario Decimal @db.Decimal(10, 2)
+
+  @@index([venta_id])
+  @@map("venta_items")
+}
+
+model Compra {
+  id               String   @id @default(uuid())
+  proveedor_nombre String?  @db.VarChar(150)
+  usuario_id       String   @map("usuario_id")
+  usuario          Usuario  @relation(fields: [usuario_id], references: [id])
+  total            Decimal  @db.Decimal(10, 2)
+  creado_en        DateTime @default(now()) @db.Timestamptz(6)
+
+  items CompraItem[]
+
+  @@map("compras")
+}
+
+model CompraItem {
+  id             String   @id @default(uuid())
+  compra_id      String   @map("compra_id")
+  compra         Compra   @relation(fields: [compra_id], references: [id])
+  producto_id    String   @map("producto_id")
+  producto       Producto @relation(fields: [producto_id], references: [id])
+  cantidad       Decimal  @db.Decimal(10, 2)
+  costo_unitario Decimal  @db.Decimal(10, 2)
+
+  @@index([compra_id])
+  @@map("compra_items")
+}
+
+model Configuracion {
+  id                 Int               @id @default(1)
+  nombre_negocio     String            @default("Ferretería") @db.VarChar(150)
+  ruc                String?           @db.VarChar(20)
+  direccion          String?           @db.VarChar(200)
+  telefono           String?           @db.VarChar(20)
+  formato_impresion  FormatoImpresion  @default(termica)
+  metodos_pago       MetodoPago[]      @default([efectivo])
+  extras_contratados Json              @default("{}")
+  actualizado_en     DateTime          @updatedAt @db.Timestamptz(6)
+
+  @@map("configuracion")
+}
