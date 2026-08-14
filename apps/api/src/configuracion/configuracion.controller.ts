@@ -23,6 +23,18 @@ class ConfiguracionDto {
   telefono?: string;
 
   @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  web?: string;
+
+  @IsOptional()
+  @IsString()
+  instagram?: string;
+
+  @IsOptional()
   @IsIn(Object.values(FormatoImpresion))
   formato_impresion?: FormatoImpresion;
 
@@ -62,6 +74,9 @@ export class ConfiguracionController {
     if (dto.ruc !== undefined) data.ruc = dto.ruc;
     if (dto.direccion !== undefined) data.direccion = dto.direccion;
     if (dto.telefono !== undefined) data.telefono = dto.telefono;
+    if (dto.email !== undefined) data.email = dto.email;
+    if (dto.web !== undefined) data.web = dto.web;
+    if (dto.instagram !== undefined) data.instagram = dto.instagram;
     if (dto.formato_impresion !== undefined) data.formato_impresion = dto.formato_impresion;
     if (dto.metodos_pago !== undefined) data.metodos_pago = dto.metodos_pago;
     if (dto.extras_contratados !== undefined)
