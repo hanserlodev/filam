@@ -23,12 +23,20 @@ async function request<T>(
 
   // El backend (NestJS) monta todas las rutas bajo el prefijo global "/api"
   const url = `${API_URL}/api${path.startsWith("/") ? path : `/${path}`}`;
-  const res = await fetch(url, { ...options, headers });
+
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch {
+    throw new ApiError(0, "No se pudo conectar con el servidor. Intenta de nuevo.");
+  }
+
+  const text = await res.text();
 
   if (!res.ok) {
     let message = `Error ${res.status}`;
     try {
-      const body = await res.json();
+      const body = JSON.parse(text);
       if (Array.isArray(body.message)) {
         message = body.message.join(", ");
       } else if (body.message) {
@@ -40,10 +48,10 @@ async function request<T>(
     throw new ApiError(res.status, message);
   }
 
-  if (res.status === 204) {
+  if (!text) {
     return undefined as T;
   }
-  return res.json() as Promise<T>;
+  return JSON.parse(text) as T;
 }
 
 export const api = {
