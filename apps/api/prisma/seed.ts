@@ -94,6 +94,7 @@ async function main() {
     { nombre: "Ferretería general", orden: 4 },
     { nombre: "Fijaciones", orden: 5 },
     { nombre: "Pinturas", orden: 6 },
+    { nombre: "Tuberías PVC", orden: 7 },
   ];
 
   const catMap: Record<string, string> = {};
@@ -253,6 +254,37 @@ async function main() {
     },
   ];
 
+  productos.push(
+    ...[
+      ["Tubo PVC desagüe 1/2\" x 3m", "7751000000001", "PVC-DES-050", 8.5, 5.8, 120, 20, "tubo 3m"],
+      ["Tubo PVC desagüe 3/4\" x 3m", "7751000000002", "PVC-DES-075", 10.2, 7, 110, 20, "tubo 3m"],
+      ["Tubo PVC desagüe 1\" x 3m", "7751000000003", "PVC-DES-100", 12.5, 8.5, 100, 20, "tubo 3m"],
+      ["Tubo PVC desagüe 2\" x 3m", "7751000000004", "PVC-DES-200", 24, 16, 90, 15, "tubo 3m"],
+      ["Tubo PVC desagüe 4\" x 3m", "7751000000005", "PVC-DES-400", 42, 29, 80, 15, "tubo 3m"],
+      ["Tubo PVC presión 1/2\" x 5m", "7751000000006", "PVC-PRE-050", 15.8, 10.5, 100, 15, "tubo 5m"],
+      ["Tubo PVC presión 3/4\" x 5m", "7751000000007", "PVC-PRE-075", 19.9, 13.2, 95, 15, "tubo 5m"],
+      ["Tubo PVC presión 1\" x 5m", "7751000000008", "PVC-PRE-100", 26.5, 17.8, 85, 15, "tubo 5m"],
+      ["Tubo PVC presión 2\" x 5m", "7751000000009", "PVC-PRE-200", 58, 40, 60, 10, "tubo 5m"],
+      ["Codo PVC desagüe 2\" 90°", "7751000000010", "PVC-ACC-CDO-200", 2.8, 1.5, 300, 50, "unidad"],
+      ["Codo PVC desagüe 4\" 90°", "7751000000011", "PVC-ACC-CDO-400", 6.5, 3.8, 250, 50, "unidad"],
+      ["Unión universal PVC desagüe 2\"", "7751000000012", "PVC-ACC-UNI-200", 3.5, 2, 200, 40, "unidad"],
+      ["Reducción PVC 4\" a 2\"", "7751000000013", "PVC-ACC-RED-402", 5.2, 3, 180, 40, "unidad"],
+      ["Yee PVC desagüe 2\"", "7751000000014", "PVC-ACC-YEE-200", 4.8, 2.7, 150, 30, "unidad"],
+      ["Registro roscado PVC desagüe 4\"", "7751000000015", "PVC-ACC-REG-400", 14, 9, 120, 20, "unidad"],
+    ].map(([nombre, codigo_barras, sku, precio, costo, stock, stock_minimo, presentacion]) => ({
+      nombre: nombre as string,
+      codigo_barras: codigo_barras as string,
+      sku: sku as string,
+      precio: precio as number,
+      costo: costo as number,
+      stock: stock as number,
+      unidad_medida: UnidadMedida.unidad,
+      stock_minimo: stock_minimo as number,
+      categoria: "Tuberías PVC",
+      atributos: { marca: "FILAM", presentacion: presentacion as string },
+    }))
+  );
+
   for (const p of productos) {
     await prisma.producto.upsert({
       where: { codigo_barras: p.codigo_barras },
@@ -271,6 +303,31 @@ async function main() {
       },
     });
   }
+
+  await prisma.configuracion.upsert({
+    where: { id: 1 },
+    update: {
+      nombre_negocio: "FILAM — Tuberías PVC y Ferretería",
+      ruc: "20412345678",
+      direccion: "Carretera Central KM 10.5 - Hualhuas - Huancayo - Junín, Huancayo, Perú 12001",
+      telefono: "950 307 510",
+      email: "ventas@filamcentroplast.com",
+      web: "https://filamcentroplast.com",
+      instagram: "@filamcentroplast",
+    },
+    create: {
+      id: 1,
+      nombre_negocio: "FILAM — Tuberías PVC y Ferretería",
+      ruc: "20412345678",
+      direccion: "Carretera Central KM 10.5 - Hualhuas - Huancayo - Junín, Huancayo, Perú 12001",
+      telefono: "950 307 510",
+      email: "ventas@filamcentroplast.com",
+      web: "https://filamcentroplast.com",
+      instagram: "@filamcentroplast",
+      metodos_pago: [MetodoPago.efectivo, MetodoPago.yape, MetodoPago.plin],
+      extras_contratados: {},
+    },
+  });
 
   const sesionAbierta = await prisma.cajaSesion.findFirst({
     where: { usuario_id: cajero.id, estado: "abierta" },
