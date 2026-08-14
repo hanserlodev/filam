@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "./public.decorator";
 import { verificarTokenSupabase } from "./jwt-verify";
+import { PrismaService } from "../prisma/prisma.service";
 
 export interface AuthUserPayload {
   sub: string;
@@ -22,7 +23,8 @@ export class JwtAuthGuard implements CanActivate {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly reflector: Reflector
+    private readonly reflector: Reflector,
+    private readonly prisma: PrismaService
   ) {
     this.gotrueUrl = this.config.get<string>("GOTRUE_URL") || "";
     this.hmacSecret = this.config.get<string>("GOTRUE_JWT_SECRET");
@@ -50,10 +52,23 @@ export class JwtAuthGuard implements CanActivate {
         this.gotrueUrl,
         this.hmacSecret
       );
+
+      if (!payload.sub) {
+        throw new UnauthorizedException("Token sin usuario");
+      }
+
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: payload.sub },
+        select: { email: true, rol: true, activo: true },
+      });
+      if (!usuario || !usuario.activo) {
+        throw new UnauthorizedException("Usuario no encontrado o inactivo");
+      }
+
       request.user = {
-        sub: payload.sub as string,
-        email: payload.email as string,
-        role: payload.role as string,
+        sub: payload.sub,
+        email: usuario.email,
+        role: usuario.rol,
       } as AuthUserPayload;
       return true;
     } catch {

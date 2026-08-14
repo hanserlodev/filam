@@ -1,7 +1,9 @@
-import { Controller, Get, Query, BadRequestException } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { RolUsuario } from "@prisma/client";
 import { Roles } from "../auth/roles.decorator";
 import { PrismaService } from "../prisma/prisma.service";
+import { Prisma } from "@prisma/client";
+import { toDecimal, toMoney } from "../common/decimal";
 
 @Controller("reportes")
 @Roles(RolUsuario.administrador)
@@ -28,11 +30,18 @@ export class ReportesController {
       ]);
 
     return {
-      ventas_hoy: ventasHoy.reduce((s, v) => s + Number(v.total), 0),
+      ventas_hoy: toMoney(
+        ventasHoy.reduce(
+          (sum, venta) => sum.plus(toDecimal(venta.total)),
+          new Prisma.Decimal(0)
+        )
+      ).toNumber(),
       cantidad_ventas_hoy: ventasHoy.length,
       ventas_por_metodo_hoy: ventasHoy.reduce(
         (acc, v) => {
-          acc[v.metodo_pago] = (acc[v.metodo_pago] || 0) + Number(v.total);
+          acc[v.metodo_pago] = toMoney(
+            new Prisma.Decimal(acc[v.metodo_pago] || 0).plus(toDecimal(v.total))
+          ).toNumber();
           return acc;
         },
         {} as Record<string, number>
@@ -57,25 +66,28 @@ export class ReportesController {
       orderBy: { creado_en: "asc" },
     });
 
-    const mapa = new Map<string, { total: number; cantidad: number }>();
+    const mapa = new Map<string, { total: Prisma.Decimal; cantidad: number }>();
     for (let i = 0; i < nDias; i++) {
       const d = new Date(desde);
       d.setDate(desde.getDate() + i);
-      mapa.set(d.toISOString().slice(0, 10), { total: 0, cantidad: 0 });
+      mapa.set(d.toISOString().slice(0, 10), {
+        total: new Prisma.Decimal(0),
+        cantidad: 0,
+      });
     }
 
     for (const v of ventas) {
       const key = new Date(v.creado_en).toISOString().slice(0, 10);
       const entry = mapa.get(key);
       if (entry) {
-        entry.total += Number(v.total);
+        entry.total = entry.total.plus(toDecimal(v.total));
         entry.cantidad += 1;
       }
     }
 
     return Array.from(mapa.entries()).map(([fecha, { total, cantidad }]) => ({
       fecha,
-      total,
+      total: toMoney(total).toNumber(),
       cantidad,
     }));
   }
@@ -105,7 +117,9 @@ export class ReportesController {
         nombre: prod?.nombre || "Desconocido",
         cantidad_vendida: a._sum.cantidad,
         veces_vendido: a._count,
-        ingreso_estimado: Number(prod?.precio || 0) * Number(a._sum.cantidad || 0),
+        ingreso_estimado: toMoney(
+          toDecimal(prod?.precio || 0).mul(toDecimal(a._sum.cantidad || 0))
+        ).toNumber(),
       };
     });
   }

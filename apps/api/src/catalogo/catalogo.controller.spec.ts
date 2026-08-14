@@ -36,6 +36,7 @@ describe("CatalogoController", () => {
         id: "p1",
         nombre: "Tubo PVC 2\"",
         precio: 24,
+        stock: { gt: () => true },
         activo: true,
         categoria_id: "c1",
       },

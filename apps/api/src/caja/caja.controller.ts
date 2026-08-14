@@ -6,16 +6,18 @@ import {
   Param,
   Query,
   Req,
+  Res,
   ParseUUIDPipe,
   BadRequestException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { Request } from "express";
-import { RolUsuario } from "@prisma/client";
+import { Response } from "express";
+import { MetodoPago, Prisma, RolUsuario } from "@prisma/client";
 import { IsNumber, Min } from "class-validator";
 import { Roles } from "../auth/roles.decorator";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
 import { PrismaService } from "../prisma/prisma.service";
+import { toDecimal, toMoney } from "../common/decimal";
 
 class AbrirCajaDto {
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -64,14 +66,17 @@ export class CajaController {
   }
 
   @Get("abierta")
-  async miCajaAbierta(@Req() request: AuthenticatedRequest) {
+  async miCajaAbierta(
+    @Req() request: AuthenticatedRequest,
+    @Res() response?: Response
+  ) {
     const usuarioId = request.user?.sub;
     if (!usuarioId) throw new UnauthorizedException();
     const sesion = await this.prisma.cajaSesion.findFirst({
       where: { usuario_id: usuarioId, estado: "abierta" },
       include: { _count: { select: { ventas: true } } },
     });
-    return sesion || null;
+    return response ? response.status(200).json(sesion) : sesion;
   }
 
   @Post("abrir")
@@ -88,12 +93,21 @@ export class CajaController {
       );
     }
 
-    return this.prisma.cajaSesion.create({
-      data: {
-        usuario_id: usuarioId,
-        monto_apertura: dto.monto_apertura,
-      },
-    });
+    try {
+      return await this.prisma.cajaSesion.create({
+        data: {
+          usuario_id: usuarioId,
+          monto_apertura: toMoney(dto.monto_apertura),
+        },
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") {
+        throw new BadRequestException(
+          "Ya tienes una caja abierta. Ciérrala antes de abrir una nueva."
+        );
+      }
+      throw error;
+    }
   }
 
   @Post("cerrar/:id")
@@ -105,39 +119,55 @@ export class CajaController {
     const usuarioId = request.user?.sub;
     if (!usuarioId) throw new UnauthorizedException();
 
-    const sesion = await this.prisma.cajaSesion.findUnique({
-      where: { id },
-      include: {
-        ventas: { select: { total: true } },
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const sesion = await tx.cajaSesion.findUnique({
+        where: { id },
+        include: {
+          ventas: { select: { total: true, metodo_pago: true } },
+        },
+      });
 
-    if (!sesion) throw new BadRequestException("Sesión de caja no encontrada");
-    if (sesion.estado === "cerrada") {
-      throw new BadRequestException("Esta caja ya fue cerrada");
-    }
-    if (sesion.usuario_id !== usuarioId) {
-      throw new BadRequestException("Solo el cajero que abrió la caja puede cerrarla");
-    }
+      if (!sesion) throw new BadRequestException("Sesión de caja no encontrada");
+      if (sesion.estado === "cerrada") {
+        throw new BadRequestException("Esta caja ya fue cerrada");
+      }
+      if (sesion.usuario_id !== usuarioId) {
+        throw new BadRequestException("Solo el cajero que abrió la caja puede cerrarla");
+      }
 
-    const totalVendido = sesion.ventas.reduce(
-      (sum, v) => sum + Number(v.total),
-      0
-    );
-    const montoCalculado = Number(sesion.monto_apertura) + totalVendido;
-    const diferencia = montoCalculado - dto.monto_cierre;
+      // Solo el efectivo modifica el dinero físico de la caja.
+      const totalEfectivo = sesion.ventas
+        .filter((venta) => venta.metodo_pago === MetodoPago.efectivo)
+        .reduce(
+          (sum, venta) => sum.plus(toDecimal(venta.total)),
+          new Prisma.Decimal(0)
+        );
+      const montoCalculado = toMoney(
+        toDecimal(sesion.monto_apertura).plus(totalEfectivo)
+      );
+      const diferencia = toMoney(
+        montoCalculado.minus(toDecimal(dto.monto_cierre))
+      );
 
-    return this.prisma.cajaSesion.update({
-      where: { id },
-      data: {
-        monto_cierre: dto.monto_cierre,
-        diferencia,
-        cerrada_en: new Date(),
-        estado: "cerrada",
-      },
-      include: {
-        ventas: { select: { total: true, metodo_pago: true } },
-      },
+      const actualizada = await tx.cajaSesion.updateMany({
+        where: { id, usuario_id: usuarioId, estado: "abierta" },
+        data: {
+          monto_cierre: toMoney(dto.monto_cierre),
+          diferencia,
+          cerrada_en: new Date(),
+          estado: "cerrada",
+        },
+      });
+      if (actualizada.count === 0) {
+        throw new BadRequestException("Esta caja ya fue cerrada");
+      }
+
+      return tx.cajaSesion.findUnique({
+        where: { id },
+        include: {
+          ventas: { select: { total: true, metodo_pago: true } },
+        },
+      });
     });
   }
 }

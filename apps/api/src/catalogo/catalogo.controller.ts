@@ -9,7 +9,7 @@ export class CatalogoController {
   @Public()
   @Get()
   async catalogo() {
-    const [config, categorias, productos] = await Promise.all([
+    const [config, categorias, productosInternos] = await Promise.all([
       this.prisma.configuracion.findFirst(),
       this.prisma.categoria.findMany({
         orderBy: { orden: "asc" },
@@ -21,17 +21,19 @@ export class CatalogoController {
         select: {
           id: true,
           nombre: true,
-          sku: true,
-          codigo_barras: true,
           precio: true,
           unidad_medida: true,
           stock: true,
-          stock_minimo: true,
           atributos: true,
           categoria_id: true,
         },
       }),
     ]);
+
+    const productos = productosInternos.map(({ stock, ...producto }) => ({
+      ...producto,
+      disponible: stock.gt(0),
+    }));
 
     return {
       negocio: {

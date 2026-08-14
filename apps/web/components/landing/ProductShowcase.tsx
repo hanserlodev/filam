@@ -29,8 +29,8 @@ export default function ProductShowcase({
       .filter((p) =>
         q
           ? p.nombre.toLowerCase().includes(q) ||
-            (p.codigo_barras && p.codigo_barras.includes(q)) ||
-            (p.sku && p.sku.toLowerCase().includes(q))
+            (typeof p.atributos?.marca === "string" &&
+              p.atributos.marca.toLowerCase().includes(q))
           : true
       );
   }, [productos, catActiva, query]);
@@ -84,8 +84,7 @@ export default function ProductShowcase({
                 typeof atributos.presentacion === "string"
                   ? atributos.presentacion
                   : null;
-              const agotado = p.stock <= 0;
-              const bajoStock = !agotado && p.stock <= p.stock_minimo;
+              const agotado = !p.disponible;
 
               return (
                 <div
@@ -98,11 +97,6 @@ export default function ProductShowcase({
                     <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full">
                       <AlertTriangle size={12} />
                       Agotado
-                    </span>
-                  ) : bajoStock ? (
-                    <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 bg-amber-50 text-amber-600 text-xs font-semibold px-2.5 py-1 rounded-full">
-                      <AlertTriangle size={12} />
-                      Últimas unidades
                     </span>
                   ) : null}
 

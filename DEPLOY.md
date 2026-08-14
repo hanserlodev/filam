@@ -18,7 +18,7 @@ Producción futura: self-hosted (Caddy + Docker Compose).
 2. Configurar:
    - **Name**: `filam-api`
    - **Runtime**: Node
-   - **Build Command**: `npm ci && npm run build --workspace @filam/api`
+   - **Build Command**: `npm ci --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build --workspace @filam/api`
    - **Start Command**: `node apps/api/dist/src/main.js`
    - **Health Check Path**: `/api/health`
    - **Plan**: Free

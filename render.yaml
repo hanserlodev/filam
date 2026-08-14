@@ -3,7 +3,7 @@ services:
     name: filam-api
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build --workspace @filam/api
+    buildCommand: npm ci --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build --workspace @filam/api
     startCommand: node apps/api/dist/src/main.js
     healthCheckPath: /api/health
     envVars:

@@ -35,10 +35,12 @@ export function createPrismaMock<T = unknown>(overrides: DeepPartial<T> = {}) {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     venta: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       count: jest.fn(),
     },

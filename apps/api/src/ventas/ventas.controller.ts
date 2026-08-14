@@ -3,23 +3,28 @@ import {
   Get,
   Post,
   Body,
+  Param,
   Query,
   Req,
+  ParseUUIDPipe,
   BadRequestException,
+  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { Request } from "express";
 import {
   FormatoImpresion,
   MetodoPago,
   TipoComprobante,
+  UnidadMedida,
+  Prisma,
 } from "@prisma/client";
 import {
   IsArray,
+  isISO8601,
+  isUUID,
   IsIn,
   IsNumber,
   IsOptional,
-  IsString,
   IsUUID,
   Min,
   ValidateNested,
@@ -27,6 +32,7 @@ import {
 import { Type } from "class-transformer";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
+import { toDecimal, toMoney } from "../common/decimal";
 
 class VentaItemDto {
   @IsUUID()
@@ -64,16 +70,40 @@ export class VentasController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  listar(
+  async listar(
     @Query("cajaSesionId") cajaSesionId?: string,
     @Query("fechaInicio") fechaInicio?: string,
     @Query("fechaFin") fechaFin?: string,
-    @Query("vendedorId") vendedorId?: string
+    @Query("vendedorId") vendedorId?: string,
+    @Req() request?: AuthenticatedRequest
   ) {
+    const usuarioId = request?.user?.sub;
+    if (!usuarioId) throw new UnauthorizedException();
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { rol: true, activo: true },
+    });
+    if (!usuario || !usuario.activo) throw new UnauthorizedException();
+
     const where: Record<string, unknown> = {};
-    if (cajaSesionId) where.caja_sesion_id = cajaSesionId;
-    if (vendedorId) where.vendedor_id = vendedorId;
+    if (cajaSesionId) {
+      if (!isUUID(cajaSesionId)) {
+        throw new BadRequestException("cajaSesionId debe ser un UUID válido");
+      }
+      where.caja_sesion_id = cajaSesionId;
+    }
+    if (vendedorId && !isUUID(vendedorId)) {
+      throw new BadRequestException("vendedorId debe ser un UUID válido");
+    }
+    where.vendedor_id = usuario.rol === "administrador" ? vendedorId : usuarioId;
     if (fechaInicio || fechaFin) {
+      if (
+        (fechaInicio && !isISO8601(fechaInicio)) ||
+        (fechaFin && !isISO8601(fechaFin))
+      ) {
+        throw new BadRequestException("Las fechas deben estar en formato ISO válido");
+      }
       where.creado_en = {
         ...(fechaInicio ? { gte: new Date(fechaInicio) } : {}),
         ...(fechaFin ? { lte: new Date(fechaFin) } : {}),
@@ -92,9 +122,26 @@ export class VentasController {
   }
 
   @Get("detalle/:id")
-  obtener(id: string) {
-    return this.prisma.venta.findUnique({
-      where: { id },
+  async obtener(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    const usuario = request.user;
+    if (!usuario?.sub) throw new UnauthorizedException();
+
+    const vendedor = await this.prisma.usuario.findUnique({
+      where: { id: usuario.sub },
+      select: { rol: true, activo: true },
+    });
+    if (!vendedor || !vendedor.activo) throw new UnauthorizedException();
+
+    const venta = await this.prisma.venta.findFirst({
+      where: {
+        id,
+        ...(vendedor.rol === "administrador"
+          ? {}
+          : { vendedor_id: usuario.sub }),
+      },
       include: {
         items: {
           include: {
@@ -105,6 +152,8 @@ export class VentasController {
         cajaSesion: { select: { id: true, abierta_en: true } },
       },
     });
+    if (!venta) throw new NotFoundException("Venta no encontrada");
+    return venta;
   }
 
   @Post()
@@ -130,28 +179,38 @@ export class VentasController {
       // 2. Pre-validar stock y calcular total con precios actuales
       const detalles: Array<{
         producto_id: string;
-        cantidad: number;
-        precio_unitario: number;
+        cantidad: Prisma.Decimal;
+        precio_unitario: Prisma.Decimal;
       }> = [];
-      let total = 0;
+      let total = new Prisma.Decimal(0);
 
       for (const item of dto.items) {
+        const cantidad = toDecimal(item.cantidad);
         const producto = await tx.producto.findUnique({
           where: { id: item.producto_id },
         });
         if (!producto || !producto.activo) {
           throw new BadRequestException("Producto no encontrado o inactivo");
         }
-        if (Number(producto.stock) < item.cantidad) {
+        if (
+          (producto.unidad_medida === UnidadMedida.unidad ||
+            producto.unidad_medida === UnidadMedida.caja) &&
+          !cantidad.isInteger()
+        ) {
           throw new BadRequestException(
-            `Stock insuficiente para "${producto.nombre}": disponible ${producto.stock}, solicitado ${item.cantidad}`
+            `"${producto.nombre}" solo se vende en cantidades enteras`
           );
         }
-        const precio = Number(producto.precio);
-        total += precio * item.cantidad;
+        if (toDecimal(producto.stock).lt(cantidad)) {
+          throw new BadRequestException(
+            `Stock insuficiente para "${producto.nombre}": disponible ${producto.stock}, solicitado ${cantidad}`
+          );
+        }
+        const precio = toMoney(producto.precio);
+        total = total.plus(precio.mul(cantidad));
         detalles.push({
           producto_id: item.producto_id,
-          cantidad: item.cantidad,
+          cantidad,
           precio_unitario: precio,
         });
       }
@@ -165,7 +224,7 @@ export class VentasController {
           metodo_pago: dto.metodo_pago,
           tipo_comprobante: dto.tipo_comprobante ?? TipoComprobante.nota_venta,
           formato_impresion: dto.formato_impresion ?? FormatoImpresion.termica,
-          total,
+          total: toMoney(total),
           items: {
             create: detalles.map((d) => ({
               producto_id: d.producto_id,

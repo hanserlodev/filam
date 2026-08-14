@@ -13,11 +13,11 @@ import {
 import { RolUsuario, UnidadMedida } from "@prisma/client";
 import {
   IsBoolean,
-  IsDecimal,
   IsIn,
   IsNumber,
   IsObject,
   IsOptional,
+  IsUUID,
   IsString,
   Min,
   MinLength,
@@ -77,7 +77,7 @@ class ProductoDto {
   atributos?: Record<string, unknown>;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   categoria_id?: string;
 }
 

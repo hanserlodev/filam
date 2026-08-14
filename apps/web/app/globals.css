@@ -55,3 +55,35 @@
     @apply mt-2 text-3xl sm:text-4xl font-bold text-steel-900 tracking-tight;
   }
 }
+
+.receipt-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  body:has(#receipt-print) * {
+    visibility: hidden !important;
+  }
+
+  body:has(#receipt-print) #receipt-print,
+  body:has(#receipt-print) #receipt-print * {
+    visibility: visible !important;
+  }
+
+  body:has(#receipt-print) #receipt-print {
+    display: block !important;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 80mm;
+    padding: 5mm;
+    color: #0f172a;
+    background: white;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+  }
+}

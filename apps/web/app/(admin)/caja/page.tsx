@@ -30,7 +30,6 @@ export default function CajaPage() {
 
   async function cargar() {
     if (!token) return;
-    setLoading(true);
     setError("");
     try {
       const [abierta, lista] = await Promise.all([
@@ -47,7 +46,9 @@ export default function CajaPage() {
   }
 
   useEffect(() => {
-    if (token) cargar();
+    if (!token) return;
+    const timer = window.setTimeout(() => void cargar(), 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 

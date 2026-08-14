@@ -291,6 +291,20 @@ export default function PosPage() {
               placeholder="Buscar producto, código de barras o SKU..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const code = query.trim().toLowerCase();
+                const producto = productos.find(
+                  (item) =>
+                    item.codigo_barras?.toLowerCase() === code ||
+                    item.sku?.toLowerCase() === code
+                );
+                if (!producto) return;
+                e.preventDefault();
+                agregarProducto(producto);
+                setQuery("");
+                searchRef.current?.focus();
+              }}
             />
           </div>
 
@@ -324,7 +338,7 @@ export default function PosPage() {
             ))}
             {filtrados.length === 0 && (
               <div className="col-span-full text-center py-12 text-gray-400">
-                Sin resultados para "{query}"
+                Sin resultados para &quot;{query}&quot;
               </div>
             )}
           </div>
@@ -453,7 +467,9 @@ export default function PosPage() {
             {caja ? (
               <div className="space-y-3">
                 <p className="text-gray-600">
-                  Caja abierta desde hace {new Date(caja.abierta_en ?? Date.now()).toLocaleTimeString("es-PE")}
+                  Caja abierta desde hace {caja.abierta_en
+                    ? new Date(caja.abierta_en).toLocaleTimeString("es-PE")
+                    : "—"}
                 </p>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
@@ -502,7 +518,38 @@ export default function PosPage() {
 
       {/* Modal éxito venta */}
       {showExito && ventaCreada && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <>
+          <div id="receipt-print" className="receipt-print" aria-hidden="true">
+            <div style={{ textAlign: "center", fontWeight: 700, fontSize: 15 }}>
+              FILAM
+            </div>
+            <div style={{ textAlign: "center" }}>Tuberías PVC & Ferretería</div>
+            <div style={{ textAlign: "center", margin: "8px 0" }}>
+              NOTA DE VENTA
+            </div>
+            <div>Venta: #{ventaCreada.id.slice(0, 8).toUpperCase()}</div>
+            <div>{ventaCreada.creado_en
+              ? new Date(ventaCreada.creado_en).toLocaleString("es-PE")
+              : "Fecha no disponible"}</div>
+            <hr style={{ margin: "8px 0", borderColor: "#94a3b8" }} />
+            {ventaCreada.items.map((item, i) => (
+              <div key={i} style={{ marginBottom: 5 }}>
+                <div>{item.producto.nombre}</div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{item.cantidad} x {formatCurrency(item.precio_unitario)}</span>
+                  <span>{formatCurrency(item.precio_unitario * item.cantidad)}</span>
+                </div>
+              </div>
+            ))}
+            <hr style={{ margin: "8px 0", borderColor: "#94a3b8" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 14 }}>
+              <span>TOTAL</span>
+              <span>{formatCurrency(ventaCreada.total)}</span>
+            </div>
+            <div style={{ textAlign: "center", marginTop: 12 }}>Gracias por su compra</div>
+          </div>
+
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
             <div className="flex flex-col items-center text-center mb-4">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3">
@@ -552,7 +599,8 @@ export default function PosPage() {
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -37,12 +37,42 @@ export const FormatoImpresion = {
 export const Prisma = {
   InputJsonValue: Symbol("InputJsonValue"),
   Decimal: class Decimal {
+    value: number;
+
     constructor(value: number | string) {
       this.value = Number(value);
     }
-    value: number;
+
     toNumber() {
       return this.value;
+    }
+
+    toString() {
+      return String(this.value);
+    }
+
+    plus(value: { value: number } | number | string) {
+      return new Prisma.Decimal(this.value + Number(value));
+    }
+
+    minus(value: { value: number } | number | string) {
+      return new Prisma.Decimal(this.value - Number(value));
+    }
+
+    mul(value: { value: number } | number | string) {
+      return new Prisma.Decimal(this.value * Number(value));
+    }
+
+    lt(value: { value: number } | number | string) {
+      return this.value < Number(value);
+    }
+
+    isInteger() {
+      return Number.isInteger(this.value);
+    }
+
+    toDecimalPlaces() {
+      return new Prisma.Decimal(Math.round(this.value * 100) / 100);
     }
   },
 };

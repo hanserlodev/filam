@@ -1,12 +1,9 @@
 export interface CatalogoProducto {
   id: string;
   nombre: string;
-  sku: string | null;
-  codigo_barras: string | null;
   precio: number;
   unidad_medida: string;
-  stock: number;
-  stock_minimo: number;
+  disponible: boolean;
   atributos: Record<string, unknown> | null;
   categoria_id: string;
 }

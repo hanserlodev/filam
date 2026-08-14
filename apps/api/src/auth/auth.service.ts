@@ -94,14 +94,26 @@ export class AuthService {
 
     const goTrueUser = (await res.json()) as GoTrueAdminResponse;
 
-    return this.prisma.usuario.create({
-      data: {
-        id: goTrueUser.id,
-        nombre,
-        email,
-        rol,
-      },
-    });
+    try {
+      return await this.prisma.usuario.create({
+        data: {
+          id: goTrueUser.id,
+          nombre,
+          email,
+          rol,
+        },
+      });
+    } catch (error) {
+      // Evita dejar una cuenta autenticable sin perfil/rol en el sistema.
+      await fetch(`${this.gotrueAdminUrl}/users/${goTrueUser.id}`, {
+        method: "DELETE",
+        headers: {
+          apikey: this.serviceRoleKey,
+          Authorization: `Bearer ${this.serviceRoleKey}`,
+        },
+      }).catch(() => undefined);
+      throw error;
+    }
   }
 
   /**

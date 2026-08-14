@@ -8,8 +8,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { Request } from "express";
-import { RolUsuario } from "@prisma/client";
+import { Prisma, RolUsuario, UnidadMedida } from "@prisma/client";
 import {
   IsArray,
   IsNumber,
@@ -23,6 +22,7 @@ import { Type } from "class-transformer";
 import { Roles } from "../auth/roles.decorator";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
 import { PrismaService } from "../prisma/prisma.service";
+import { toDecimal, toMoney } from "../common/decimal";
 
 class CompraItemDto {
   @IsUUID()
@@ -77,9 +77,31 @@ export class ComprasController {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const total = dto.items.reduce(
-        (sum, item) => sum + item.cantidad * item.costo_unitario,
-        0
+      for (const item of dto.items) {
+        const producto = await tx.producto.findUnique({
+          where: { id: item.producto_id },
+          select: { unidad_medida: true },
+        });
+        if (!producto) {
+          throw new BadRequestException("Producto no encontrado");
+        }
+        if (
+          (producto.unidad_medida === UnidadMedida.unidad ||
+            producto.unidad_medida === UnidadMedida.caja) &&
+          !toDecimal(item.cantidad).isInteger()
+        ) {
+          throw new BadRequestException(
+            "Los productos por unidad o caja requieren cantidades enteras"
+          );
+        }
+      }
+
+      const total = toMoney(
+        dto.items.reduce(
+          (sum, item) =>
+            sum.plus(toDecimal(item.cantidad).mul(toMoney(item.costo_unitario))),
+          new Prisma.Decimal(0)
+        )
       );
 
       const compra = await tx.compra.create({

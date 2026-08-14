@@ -29,7 +29,6 @@ export default function ProductosPage() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
     api
       .get<Producto[]>(`/productos${query ? `?q=${encodeURIComponent(query)}` : ""}`, token)
       .then(setProductos)

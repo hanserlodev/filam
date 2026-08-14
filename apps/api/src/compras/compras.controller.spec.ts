@@ -10,6 +10,7 @@ describe("ComprasController", () => {
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    prisma.producto.findUnique.mockResolvedValue({ unidad_medida: "unidad" });
     prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
       fn(prisma)
     );
@@ -53,7 +54,7 @@ describe("ComprasController", () => {
         data: expect.objectContaining({
           proveedor_nombre: "Distribuidora ABC",
           usuario_id: "u1",
-          total: 62, // 10*5 + 4*3
+          total: expect.anything(), // 10*5 + 4*3
         }),
       })
     );

@@ -6,7 +6,7 @@ services:
     container_name: filam-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: filam
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Set LOCAL_POSTGRES_PASSWORD}
       POSTGRES_DB: filam
     ports:
       - "5432:5432"
@@ -27,14 +27,14 @@ services:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:filam@postgres:5432/filam
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${LOCAL_POSTGRES_PASSWORD:?Set LOCAL_POSTGRES_PASSWORD}@postgres:5432/filam
       GOTRUE_SITE_URL: http://localhost:3000
       GOTRUE_URI_ALLOW_LIST: http://localhost:3000
       GOTRUE_DISABLE_SIGNUP: "false"
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
-      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters
+      GOTRUE_JWT_SECRET: ${LOCAL_GOTRUE_JWT_SECRET:?Set LOCAL_GOTRUE_JWT_SECRET}
       GOTRUE_JWT_EXP: 3600
       GOTRUE_SMTP_HOST: localhost
       GOTRUE_SMTP_PORT: 587

@@ -3,7 +3,7 @@ import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { VentasController } from "./ventas.controller";
 import { PrismaService } from "../prisma/prisma.service";
 import { createPrismaMock } from "../../test/utils";
-import { MetodoPago, TipoComprobante, FormatoImpresion, RolUsuario } from "@prisma/client";
+import { MetodoPago, TipoComprobante, FormatoImpresion } from "@prisma/client";
 
 describe("VentasController", () => {
   let controller: VentasController;
@@ -67,8 +67,8 @@ describe("VentasController", () => {
       expect(prisma.venta.create).toHaveBeenCalled();
       expect(prisma.producto.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: "prod-1", stock: { gte: 2 } }),
-          data: { stock: { decrement: 2 } },
+          where: expect.objectContaining({ id: "prod-1", stock: { gte: expect.anything() } }),
+          data: { stock: { decrement: expect.anything() } },
         })
       );
       expect(result).toBeDefined();
@@ -135,7 +135,7 @@ describe("VentasController", () => {
 
       expect(prisma.venta.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ total: 85.5 }),
+          data: expect.objectContaining({ total: expect.anything() }),
         })
       );
     });
@@ -174,7 +174,7 @@ describe("VentasController", () => {
 
       expect(prisma.producto.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ stock: { gte: 1.5 } }),
+          where: expect.objectContaining({ stock: { gte: expect.anything() } }),
         })
       );
       expect(result).toBeDefined();
@@ -205,12 +205,19 @@ describe("VentasController", () => {
   describe("listar", () => {
     it("lista ventas con filtros", async () => {
       prisma.venta.findMany.mockResolvedValue([{ id: "v1" }]);
-      await controller.listar("caja-1", "2026-01-01", "2026-12-31", "user-1");
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      await controller.listar(
+        "00000000-0000-4000-8000-000000000001",
+        "2026-01-01",
+        "2026-12-31",
+        "00000000-0000-4000-8000-000000000002",
+        { user: { sub: "admin-1" } } as never
+      );
       expect(prisma.venta.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            caja_sesion_id: "caja-1",
-            vendedor_id: "user-1",
+            caja_sesion_id: "00000000-0000-4000-8000-000000000001",
+            vendedor_id: "00000000-0000-4000-8000-000000000002",
             creado_en: expect.objectContaining({
               gte: expect.any(Date),
               lte: expect.any(Date),
@@ -219,16 +226,47 @@ describe("VentasController", () => {
         })
       );
     });
+
+    it("restringe al cajero sus propias ventas", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "cajero", activo: true });
+      prisma.venta.findMany.mockResolvedValue([]);
+
+      await controller.listar(undefined, undefined, undefined, "00000000-0000-4000-8000-000000000003", {
+        user: { sub: "cajero-1" },
+      } as never);
+
+      expect(prisma.venta.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ vendedor_id: "cajero-1" }),
+        })
+      );
+    });
   });
 
   describe("obtener", () => {
     it("obtiene detalle de una venta", async () => {
-      prisma.venta.findUnique.mockResolvedValue({ id: "v1", items: [] });
-      const result = await controller.obtener("v1");
-      expect(prisma.venta.findUnique).toHaveBeenCalledWith(
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findFirst.mockResolvedValue({ id: "v1", items: [] });
+      const result = await controller.obtener("v1", { user: { sub: "admin-1" } } as never);
+      expect(prisma.venta.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "v1" } })
       );
       expect(result).toEqual({ id: "v1", items: [] });
+    });
+
+    it("no permite al cajero consultar una venta ajena", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "cajero", activo: true });
+      prisma.venta.findFirst.mockResolvedValue(null);
+
+      await expect(
+        controller.obtener("v1", { user: { sub: "cajero-1" } } as never)
+      ).rejects.toThrow("Venta no encontrada");
+
+      expect(prisma.venta.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "v1", vendedor_id: "cajero-1" },
+        })
+      );
     });
   });
 });

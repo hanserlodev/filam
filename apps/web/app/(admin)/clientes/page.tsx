@@ -28,7 +28,6 @@ export default function ClientesPage() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
     api
       .get<Cliente[]>(`/clientes${query ? `?q=${encodeURIComponent(query)}` : ""}`, token)
       .then(setClientes)
