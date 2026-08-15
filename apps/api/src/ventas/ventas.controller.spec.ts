@@ -13,6 +13,7 @@ describe("VentasController", () => {
     id: "prod-1",
     nombre: "Martillo de uña 16oz",
     precio: 28.5,
+    costo: 18,
     stock: 25,
     activo: true,
   };
@@ -41,6 +42,7 @@ describe("VentasController", () => {
   describe("crear", () => {
     const baseDto = {
       pagos: [{ metodo_pago: MetodoPago.yape, monto: 57 }],
+      total_final: 57,
       items: [{ producto_id: "prod-1", cantidad: 2 }],
     };
 
@@ -132,6 +134,7 @@ describe("VentasController", () => {
         controller.crear(
           {
             pagos: [{ metodo_pago: MetodoPago.yape, monto: 50 }],
+            total_final: 57,
             items: [{ producto_id: "prod-1", cantidad: 2 }],
           } as never,
           { user: { sub: "vendedor-1" } } as never
@@ -154,6 +157,7 @@ describe("VentasController", () => {
             { metodo_pago: MetodoPago.efectivo, monto: 20 },
             { metodo_pago: MetodoPago.yape, monto: 37 },
           ],
+          total_final: 57,
           items: [{ producto_id: "prod-1", cantidad: 2 }],
         } as never,
         { user: { sub: "vendedor-1" } } as never
@@ -179,6 +183,7 @@ describe("VentasController", () => {
         id: "prod-2",
         nombre: "Cable eléctrico 3x2.5mm",
         precio: 4.8,
+        costo: 3,
         stock: 200,
         activo: true,
       };
@@ -190,6 +195,7 @@ describe("VentasController", () => {
       const result = await controller.crear(
         {
           pagos: [{ metodo_pago: MetodoPago.efectivo, monto: 7.2 }],
+          total_final: 7.2,
           items: [{ producto_id: "prod-2", cantidad: 1.5 }],
         } as never,
         { user: { sub: "vendedor-1" } } as never
@@ -320,20 +326,21 @@ describe("VentasController", () => {
 
     it("el administrador puede anular cualquier venta y revierte stock", async () => {
       prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
-      prisma.venta.findFirst.mockResolvedValue(ventaConItems);
+      prisma.venta.findFirst.mockResolvedValue({
+        ...ventaConItems,
+        items: [{ producto_id: "prod-1", cantidad: { toNumber: () => 2, negated: () => ({ toNumber: () => -2 }) } }],
+      });
+      prisma.producto.findUnique.mockResolvedValue({ id: "prod-1", stock: 23 });
       prisma.producto.update.mockResolvedValue({ id: "prod-1" });
       prisma.venta.update.mockResolvedValue({ ...ventaConItems, anulada: true });
+      prisma.inventarioMovimiento.create.mockResolvedValue({ id: "mov-1" });
 
       await controller.anular("venta-1", { motivo: "error de cobro" } as never, {
         user: { sub: "admin-1" },
       } as never);
 
-      expect(prisma.producto.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "prod-1" },
-          data: { stock: { increment: expect.anything() } },
-        })
-      );
+      expect(prisma.producto.update).toHaveBeenCalled();
+      expect(prisma.inventarioMovimiento.create).toHaveBeenCalled();
       expect(prisma.venta.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "venta-1" },

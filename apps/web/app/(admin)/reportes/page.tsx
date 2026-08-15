@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, Trophy, AlertTriangle } from "lucide-react";
+import { TrendingUp, Trophy, AlertTriangle, Percent, TrendingDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAccessToken } from "@/lib/use-access-token";
 import { formatCurrency } from "@/lib/utils";
@@ -29,11 +29,36 @@ interface StockBajo {
   categoria: { nombre: string } | null;
 }
 
+interface DescuentoCajero {
+  cajero: string;
+  total_descuento: number;
+  cantidad: number;
+}
+
+interface VentaBajoCosto {
+  id: string;
+  total: number;
+  subtotal: number;
+  descuento_monto: number;
+  motivo_descuento: string | null;
+  creado_en: string;
+  vendedor: { nombre: string | null } | null;
+}
+
+interface Margen {
+  ventas: number;
+  costo_vendido: number;
+  margen_bruto: number;
+}
+
 export default function ReportesPage() {
   const { token } = useAccessToken();
   const [ventasPorDia, setVentasPorDia] = useState<VentaDia[]>([]);
   const [topProductos, setTopProductos] = useState<TopProducto[]>([]);
   const [stockBajo, setStockBajo] = useState<StockBajo[]>([]);
+  const [descuentos, setDescuentos] = useState<DescuentoCajero[]>([]);
+  const [bajoCosto, setBajoCosto] = useState<VentaBajoCosto[]>([]);
+  const [margen, setMargen] = useState<Margen | null>(null);
   const [dias, setDias] = useState(7);
   const [error, setError] = useState("");
 
@@ -43,11 +68,17 @@ export default function ReportesPage() {
       api.get<VentaDia[]>(`/reportes/ventas-por-dia?dias=${dias}`, token),
       api.get<TopProducto[]>("/reportes/top-productos?limite=10", token),
       api.get<StockBajo[]>("/reportes/stock-bajo", token),
+      api.get<DescuentoCajero[]>(`/reportes/descuentos?dias=${dias}`, token),
+      api.get<VentaBajoCosto[]>(`/reportes/bajo-costo?dias=${dias}`, token),
+      api.get<Margen>(`/reportes/margen?dias=${dias}`, token),
     ])
-      .then(([v, t, s]) => {
+      .then(([v, t, s, d, bc, m]) => {
         setVentasPorDia(v);
         setTopProductos(t);
         setStockBajo(s);
+        setDescuentos(d);
+        setBajoCosto(bc);
+        setMargen(m);
       })
       .catch((e) => setError(e.message));
   }, [token, dias]);
@@ -173,6 +204,84 @@ export default function ReportesPage() {
             ))}
             {stockBajo.length === 0 && (
               <div className="p-8 text-center text-gray-400">Sin productos con stock bajo</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Margen bruto */}
+      {margen && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="card p-6">
+            <p className="text-sm text-gray-500">Ventas del período</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">
+              {formatCurrency(margen.ventas)}
+            </p>
+          </div>
+          <div className="card p-6">
+            <p className="text-sm text-gray-500">Costo de lo vendido</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">
+              {formatCurrency(margen.costo_vendido)}
+            </p>
+          </div>
+          <div className="card p-6 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500">Margen bruto</p>
+            <p className="text-2xl font-bold text-green-600 mt-1">
+              {formatCurrency(margen.margen_bruto)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Descuentos por cajero */}
+        <div className="card overflow-hidden">
+          <div className="p-4 border-b border-gray-200 flex items-center space-x-2">
+            <Percent size={20} className="text-secondary-600" />
+            <h2 className="font-bold text-gray-900">Descuentos por cajero</h2>
+          </div>
+          <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+            {descuentos.map((d) => (
+              <div key={d.cajero} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="font-medium text-gray-900 text-sm">{d.cajero}</p>
+                  <p className="text-xs text-gray-400">{d.cantidad} ventas con descuento</p>
+                </div>
+                <span className="font-semibold text-green-600 text-sm">
+                  -{formatCurrency(d.total_descuento)}
+                </span>
+              </div>
+            ))}
+            {descuentos.length === 0 && (
+              <div className="p-8 text-center text-gray-400">Sin descuentos en el período</div>
+            )}
+          </div>
+        </div>
+
+        {/* Ventas bajo costo */}
+        <div className="card overflow-hidden">
+          <div className="p-4 border-b border-gray-200 flex items-center space-x-2">
+            <TrendingDown size={20} className="text-amber-600" />
+            <h2 className="font-bold text-gray-900">Ventas bajo costo</h2>
+          </div>
+          <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+            {bajoCosto.map((v) => (
+              <div key={v.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="font-medium text-gray-900 text-sm">
+                    {v.vendedor?.nombre || "—"}
+                  </p>
+                  <p className="text-xs text-gray-400">{v.motivo_descuento || "sin motivo"}</p>
+                </div>
+                <span className="font-semibold text-amber-600 text-sm">
+                  {formatCurrency(v.total)}
+                </span>
+              </div>
+            ))}
+            {bajoCosto.length === 0 && (
+              <div className="p-8 text-center text-gray-400">
+                Sin ventas por debajo del costo
+              </div>
             )}
           </div>
         </div>

@@ -9,6 +9,10 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 interface Venta {
   id: string;
   total: number;
+  subtotal: number;
+  descuento_monto: number;
+  motivo_descuento: string | null;
+  venta_bajo_costo: boolean;
   metodo_pago: string;
   anulada: boolean;
   anulada_por_id: string | null;
@@ -91,6 +95,7 @@ export default function VentasPage() {
                 <th className="px-4 py-3 font-medium">Vendedor</th>
                 <th className="px-4 py-3 font-medium">Items</th>
                 <th className="px-4 py-3 font-medium">Pagos</th>
+                <th className="px-4 py-3 font-medium text-right">Descuento</th>
                 <th className="px-4 py-3 font-medium text-right">Total</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Acción</th>
@@ -108,6 +113,23 @@ export default function VentasPage() {
                     {(v.pagos ?? [])
                       .map((p) => `${p.metodo_pago} ${formatCurrency(p.monto)}`)
                       .join(", ")}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {Number(v.descuento_monto) > 0 ? (
+                      <span
+                        className="font-semibold text-green-600"
+                        title={v.motivo_descuento || "regateo"}
+                      >
+                        -{formatCurrency(v.descuento_monto)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                    {v.venta_bajo_costo && (
+                      <span className="block text-[10px] font-bold text-amber-600 mt-1">
+                        BAJO COSTO
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">
                     {formatCurrency(v.total)}

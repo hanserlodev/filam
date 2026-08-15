@@ -35,6 +35,7 @@ import { Type } from "class-transformer";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
 import { toDecimal, toMoney } from "../common/decimal";
+import { registrarMovimientoInventario } from "../inventario/inventario-movimiento.helper";
 
 class VentaItemDto {
   @IsUUID()
@@ -71,6 +72,21 @@ class CrearVentaDto {
   @IsOptional()
   @IsUUID()
   cliente_id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  idempotency_key?: string;
+
+  // Total final que el cajero acuerda con el cliente (regateo).
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  total_final: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  motivo_descuento?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
@@ -199,25 +215,43 @@ export class VentasController {
         "La venta debe tener al menos un método de pago"
       );
     }
+    if (dto.total_final <= 0) {
+      throw new BadRequestException("El total final debe ser mayor a cero");
+    }
+    if (dto.motivo_descuento && dto.motivo_descuento.trim().length < 3) {
+      throw new BadRequestException(
+        "El motivo del descuento debe tener al menos 3 caracteres"
+      );
+    }
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. La venta requiere una caja abierta del vendedor
-      const caja = await tx.cajaSesion.findFirst({
-        where: { usuario_id: vendedorId, estado: "abierta" },
+    // Idempotencia: si ya se registró esta clave, devuelve la venta original.
+    if (dto.idempotency_key) {
+      const existente = await this.prisma.venta.findUnique({
+        where: { idempotency_key: dto.idempotency_key },
       });
+      if (existente) return existente;
+    }
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        const caja = await tx.cajaSesion.findFirst({
+          where: { usuario_id: vendedorId, estado: "abierta" },
+        });
       if (!caja) {
         throw new BadRequestException(
           "No tienes una caja abierta. Abre tu turno antes de vender."
         );
       }
 
-      // 2. Pre-validar stock y calcular total con precios actuales
+      // Pre-validar stock, precio de lista y costo snapshot.
       const detalles: Array<{
         producto_id: string;
         cantidad: Prisma.Decimal;
-        precio_unitario: Prisma.Decimal;
+        precio_lista: Prisma.Decimal;
+        costo_unitario: Prisma.Decimal | null;
       }> = [];
-      let total = new Prisma.Decimal(0);
+      let subtotal = new Prisma.Decimal(0);
+      let bajoCosto = false;
 
       for (const item of dto.items) {
         const cantidad = toDecimal(item.cantidad);
@@ -241,30 +275,56 @@ export class VentasController {
             `Stock insuficiente para "${producto.nombre}": disponible ${producto.stock}, solicitado ${cantidad}`
           );
         }
-        const precio = toMoney(producto.precio);
-        total = total.plus(precio.mul(cantidad));
+        const precioLista = toMoney(producto.precio);
+        subtotal = subtotal.plus(precioLista.mul(cantidad));
+        const costo = producto.costo != null ? toMoney(producto.costo) : null;
         detalles.push({
           producto_id: item.producto_id,
           cantidad,
-          precio_unitario: precio,
+          precio_lista: precioLista,
+          costo_unitario: costo,
         });
       }
 
-      // 3. Validar que la suma de pagos sea exactamente el total
+      const subtotalVenta = toMoney(subtotal);
+      const totalFinal = toMoney(dto.total_final);
+      const descuentoMonto = toMoney(subtotalVenta.minus(totalFinal));
+
+      if (descuentoMonto.lt(0)) {
+        throw new BadRequestException(
+          "El total final no puede superar el subtotal de los productos"
+        );
+      }
+      if (descuentoMonto.gt(0) && !dto.motivo_descuento) {
+        throw new BadRequestException(
+          "Indica el motivo del descuento para registrar la venta"
+        );
+      }
+
+      // Detectar venta bajo costo (total final < costo total de los ítems).
+      let costoTotal = new Prisma.Decimal(0);
+      for (const detalle of detalles) {
+        if (detalle.costo_unitario != null) {
+          costoTotal = costoTotal.plus(
+            detalle.costo_unitario.mul(detalle.cantidad)
+          );
+        }
+      }
+      bajoCosto = totalFinal.lt(toMoney(costoTotal));
+
+      // Validar que los pagos sumen el total final.
       const totalPagos = dto.pagos.reduce(
         (sum, p) => sum.plus(toMoney(p.monto)),
         new Prisma.Decimal(0)
       );
-      const totalVenta = toMoney(total);
-      if (!totalPagos.eq(totalVenta)) {
+      if (!totalPagos.eq(totalFinal)) {
         throw new BadRequestException(
-          `La suma de pagos (S/ ${totalPagos}) no coincide con el total de la venta (S/ ${totalVenta})`
+          `La suma de pagos (S/ ${totalPagos}) no coincide con el total de la venta (S/ ${totalFinal})`
         );
       }
 
       const metodoPrincipal = dto.pagos[0].metodo_pago;
 
-      // 4. Crear venta + items + pagos
       const venta = await tx.venta.create({
         data: {
           caja_sesion_id: caja.id,
@@ -273,12 +333,23 @@ export class VentasController {
           metodo_pago: metodoPrincipal,
           tipo_comprobante: dto.tipo_comprobante ?? TipoComprobante.nota_venta,
           formato_impresion: dto.formato_impresion ?? FormatoImpresion.termica,
-          total: totalVenta,
+          subtotal: subtotalVenta,
+          descuento_monto: descuentoMonto,
+          motivo_descuento: descuentoMonto.gt(0) ? dto.motivo_descuento : null,
+          venta_bajo_costo: bajoCosto,
+          total: totalFinal,
+          idempotency_key: dto.idempotency_key || null,
           items: {
             create: detalles.map((d) => ({
               producto_id: d.producto_id,
               cantidad: d.cantidad,
-              precio_unitario: d.precio_unitario,
+              precio_lista: d.precio_lista,
+              descuento_monto: d.cantidad
+                .mul(d.precio_lista)
+                .mul(descuentoMonto)
+                .div(subtotalVenta.isZero() ? 1 : subtotalVenta),
+              precio_unitario: d.precio_lista,
+              costo_unitario: d.costo_unitario,
             })),
           },
           pagos: {
@@ -299,7 +370,7 @@ export class VentasController {
         },
       });
 
-      // 5. Descontar stock de forma atómica (concurrencia)
+      // Descontar stock con movimiento de inventario (atómico).
       for (const detalle of detalles) {
         const resultado = await tx.producto.updateMany({
           where: {
@@ -313,10 +384,28 @@ export class VentasController {
             "El stock cambió durante la venta. Reintenta."
           );
         }
+        const producto = await tx.producto.findUnique({
+          where: { id: detalle.producto_id },
+          select: { stock: true },
+        });
+        await tx.inventarioMovimiento.create({
+          data: {
+            producto_id: detalle.producto_id,
+            tipo: "venta",
+            cantidad: detalle.cantidad.negated(),
+            stock_anterior: toDecimal(producto?.stock ?? 0).plus(detalle.cantidad),
+            stock_posterior: toDecimal(producto?.stock ?? 0),
+            motivo: "venta",
+            usuario_id: vendedorId,
+            venta_id: venta.id,
+          },
+        });
       }
 
       return venta;
-    });
+      },
+      { timeout: 20000 }
+    );
   }
 
   @Post("anular/:id")
@@ -349,7 +438,6 @@ export class VentasController {
         throw new BadRequestException("Esta venta ya fue anulada");
       }
 
-      // Cajero solo puede anular ventas de su propia caja abierta.
       if (usuario.rol === "cajero") {
         const caja = await tx.cajaSesion.findFirst({
           where: { usuario_id: usuarioId, estado: "abierta" },
@@ -366,11 +454,16 @@ export class VentasController {
         }
       }
 
-      // Revertir stock
+      // Revertir stock con movimiento.
       for (const item of venta.items) {
-        await tx.producto.update({
-          where: { id: item.producto_id },
-          data: { stock: { increment: item.cantidad } },
+        await registrarMovimientoInventario({
+          tx,
+          productoId: item.producto_id,
+          tipo: "anulacion_venta",
+          cantidad: item.cantidad.toNumber(),
+          motivo: dto.motivo,
+          usuarioId,
+          ventaId: id,
         });
       }
 
@@ -391,6 +484,8 @@ export class VentasController {
           pagos: true,
         },
       });
-    });
+      },
+      { timeout: 20000 }
+    );
   }
 }

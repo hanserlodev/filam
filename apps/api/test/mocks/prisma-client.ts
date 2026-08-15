@@ -40,6 +40,30 @@ export const TipoMovimientoCaja = {
   retiro: "retiro",
 } as const;
 
+export const TipoMovimientoInventario = {
+  compra: "compra",
+  venta: "venta",
+  anulacion_venta: "anulacion_venta",
+  devolucion_proveedor: "devolucion_proveedor",
+  merma: "merma",
+  rotura: "rotura",
+  perdida: "perdida",
+  ajuste_conteo: "ajuste_conteo",
+} as const;
+
+export const EstadoCompra = {
+  registrada: "registrada",
+  anulada: "anulada",
+  devuelta: "devuelta",
+} as const;
+
+export const TipoDocumentoCompra = {
+  factura: "factura",
+  boleta: "boleta",
+  guia: "guia",
+  referencia: "referencia",
+} as const;
+
 export const Prisma = {
   InputJsonValue: Symbol("InputJsonValue"),
   Decimal: class Decimal {
@@ -83,6 +107,14 @@ export const Prisma = {
 
     eq(value: { value: number } | number | string) {
       return this.value === Number(value);
+    }
+
+    isZero() {
+      return this.value === 0;
+    }
+
+    negated() {
+      return new Prisma.Decimal(-this.value);
     }
 
     abs() {

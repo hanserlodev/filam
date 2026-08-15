@@ -54,6 +54,30 @@ enum TipoMovimientoCaja {
   retiro
 }
 
+enum TipoMovimientoInventario {
+  compra
+  venta
+  anulacion_venta
+  devolucion_proveedor
+  merma
+  rotura
+  perdida
+  ajuste_conteo
+}
+
+enum EstadoCompra {
+  registrada
+  anulada
+  devuelta
+}
+
+enum TipoDocumentoCompra {
+  factura
+  boleta
+  guia
+  referencia
+}
+
 model Usuario {
   id        String     @id @default(uuid())
   nombre    String     @db.VarChar(150)
@@ -66,19 +90,28 @@ model Usuario {
   ventas       Venta[]
   compras      Compra[]
   ventasAnuladas Venta[]      @relation("VentaAnuladaPor")
+  comprasAnuladas Compra[]    @relation("CompraAnuladaPor")
   movimientosCaja CajaMovimiento[]
   evidenciasSubidas CajaEvidencia[]
+  movimientosInventario InventarioMovimiento[]
+  cambiosPrecios PrecioHistorico[]
 
   @@map("usuarios")
 }
 
 model Categoria {
-  id     String @id @default(uuid())
-  nombre String @unique @db.VarChar(100)
-  orden  Int    @default(0)
+  id      String    @id @default(uuid())
+  nombre  String    @unique @db.VarChar(100)
+  orden   Int       @default(0)
+  activa  Boolean   @default(true)
+  padre_id String?  @map("padre_id")
+  padre   Categoria? @relation("CategoriaPadre", fields: [padre_id], references: [id])
+  hijas   Categoria[] @relation("CategoriaPadre")
+  creado_en DateTime @default(now()) @db.Timestamptz(6)
 
   productos Producto[]
 
+  @@index([padre_id])
   @@map("categorias")
 }
 
@@ -92,16 +125,19 @@ model Producto {
   precio        Decimal         @db.Decimal(10, 2)
   costo         Decimal?        @db.Decimal(10, 2)
   stock         Decimal         @default(0) @db.Decimal(10, 2)
-  unidad_medida UnidadMedida    @default(unidad)
   stock_minimo  Decimal         @default(5) @db.Decimal(10, 2)
+  stock_objetivo Decimal?       @db.Decimal(10, 2)
+  unidad_medida UnidadMedida    @default(unidad)
   imagen_url    String?
   activo        Boolean         @default(true)
   atributos     Json            @default("{}")
   creado_en     DateTime        @default(now()) @db.Timestamptz(6)
   actualizado_en DateTime       @updatedAt @db.Timestamptz(6)
 
-  ventaItems  VentaItem[]
-  compraItems CompraItem[]
+  ventaItems     VentaItem[]
+  compraItems    CompraItem[]
+  movimientos    InventarioMovimiento[]
+  preciosHistorico PrecioHistorico[]
 
   @@index([categoria_id])
   @@index([codigo_barras])
@@ -156,7 +192,12 @@ model Venta {
   vendedor          Usuario          @relation(fields: [vendedor_id], references: [id])
   tipo_comprobante  TipoComprobante  @default(nota_venta)
   metodo_pago       MetodoPago
+  subtotal          Decimal          @db.Decimal(10, 2)
+  descuento_monto   Decimal          @default(0) @db.Decimal(10, 2)
+  motivo_descuento  String?          @db.VarChar(300)
+  venta_bajo_costo  Boolean          @default(false)
   total             Decimal          @db.Decimal(10, 2)
+  idempotency_key   String?          @unique @db.VarChar(100)
   comprobante_ref   String?
   formato_impresion FormatoImpresion @default(termica)
   anulada           Boolean          @default(false)
@@ -181,19 +222,30 @@ model VentaItem {
   producto_id    String   @map("producto_id")
   producto       Producto @relation(fields: [producto_id], references: [id])
   cantidad       Decimal  @db.Decimal(10, 2)
+  precio_lista   Decimal  @db.Decimal(10, 2)
+  descuento_monto Decimal @default(0) @db.Decimal(10, 2)
   precio_unitario Decimal @db.Decimal(10, 2)
+  costo_unitario Decimal? @db.Decimal(10, 2)
 
   @@index([venta_id])
   @@map("venta_items")
 }
 
 model Compra {
-  id               String   @id @default(uuid())
-  proveedor_nombre String?  @db.VarChar(150)
-  usuario_id       String   @map("usuario_id")
-  usuario          Usuario  @relation(fields: [usuario_id], references: [id])
-  total            Decimal  @db.Decimal(10, 2)
-  creado_en        DateTime @default(now()) @db.Timestamptz(6)
+  id               String              @id @default(uuid())
+  proveedor_nombre String?             @db.VarChar(150)
+  documento_tipo   TipoDocumentoCompra?
+  documento_numero String?             @db.VarChar(100)
+  nota_recepcion   String?             @db.VarChar(300)
+  estado           EstadoCompra        @default(registrada)
+  anulada_en       DateTime?           @db.Timestamptz(6)
+  anulada_por_id   String?             @map("anulada_por_id")
+  anulada_por      Usuario?            @relation("CompraAnuladaPor", fields: [anulada_por_id], references: [id])
+  motivo_anulacion String?             @db.VarChar(300)
+  usuario_id       String              @map("usuario_id")
+  usuario          Usuario             @relation(fields: [usuario_id], references: [id])
+  total            Decimal             @db.Decimal(10, 2)
+  creado_en        DateTime            @default(now()) @db.Timestamptz(6)
 
   items CompraItem[]
 
@@ -273,4 +325,41 @@ model CajaEvidencia {
 
   @@index([caja_sesion_id])
   @@map("caja_evidencias")
+}
+
+model InventarioMovimiento {
+  id             String                @id @default(uuid())
+  producto_id    String                @map("producto_id")
+  producto       Producto              @relation(fields: [producto_id], references: [id])
+  tipo           TipoMovimientoInventario
+  cantidad       Decimal               @db.Decimal(10, 2)
+  stock_anterior Decimal               @db.Decimal(10, 2)
+  stock_posterior Decimal              @db.Decimal(10, 2)
+  motivo         String                @db.VarChar(300)
+  usuario_id     String                @map("usuario_id")
+  usuario        Usuario               @relation(fields: [usuario_id], references: [id])
+  compra_id      String?               @map("compra_id")
+  venta_id       String?               @map("venta_id")
+  creado_en      DateTime              @default(now()) @db.Timestamptz(6)
+
+  @@index([producto_id])
+  @@index([usuario_id])
+  @@map("inventario_movimientos")
+}
+
+model PrecioHistorico {
+  id              String    @id @default(uuid())
+  producto_id     String    @map("producto_id")
+  producto        Producto  @relation(fields: [producto_id], references: [id])
+  costo_anterior  Decimal?  @db.Decimal(10, 2)
+  costo_nuevo     Decimal?  @db.Decimal(10, 2)
+  precio_anterior Decimal?  @db.Decimal(10, 2)
+  precio_nuevo    Decimal?  @db.Decimal(10, 2)
+  origen          String    @db.VarChar(50)
+  usuario_id      String    @map("usuario_id")
+  usuario         Usuario   @relation(fields: [usuario_id], references: [id])
+  creado_en       DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([producto_id])
+  @@map("precios_historico")
 }

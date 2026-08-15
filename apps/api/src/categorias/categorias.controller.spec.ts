@@ -17,11 +17,11 @@ describe("CategoriasController", () => {
     controller = module.get<CategoriasController>(CategoriasController);
   });
 
-  it("lista categorías ordenadas por orden", async () => {
+  it("lista categorías ordenadas por activa y orden", async () => {
     prisma.categoria.findMany.mockResolvedValue([{ id: "c1", nombre: "Tubos" }]);
     const result = await controller.listar();
     expect(prisma.categoria.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { orden: "asc" } })
+      expect.objectContaining({ orderBy: [{ activa: "desc" }, { orden: "asc" }] })
     );
     expect(result).toHaveLength(1);
   });
@@ -50,7 +50,18 @@ describe("CategoriasController", () => {
     );
   });
 
-  it("elimina una categoría", async () => {
+  it("archiva una categoría con productos en vez de borrarla", async () => {
+    prisma.categoria.count.mockResolvedValue(3);
+    prisma.categoria.update.mockResolvedValue({ id: "c1", activa: false });
+    await controller.eliminar("c1");
+    expect(prisma.categoria.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1" }, data: { activa: false } })
+    );
+    expect(prisma.categoria.delete).not.toHaveBeenCalled();
+  });
+
+  it("elimina físicamente una categoría sin productos", async () => {
+    prisma.categoria.count.mockResolvedValue(0);
     prisma.categoria.delete.mockResolvedValue({ id: "c1" });
     await controller.eliminar("c1");
     expect(prisma.categoria.delete).toHaveBeenCalledWith({ where: { id: "c1" } });

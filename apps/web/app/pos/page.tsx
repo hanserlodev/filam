@@ -113,6 +113,8 @@ export default function PosPage() {
   const [pagos, setPagos] = useState<PagoLinea[]>([
     { metodo: "efectivo", monto: "" },
   ]);
+  const [totalFinal, setTotalFinal] = useState("");
+  const [motivoDescuento, setMotivoDescuento] = useState("");
   const [showMovimiento, setShowMovimiento] = useState(false);
   const [movTipo, setMovTipo] = useState<"ingreso" | "retiro">("ingreso");
   const [movMonto, setMovMonto] = useState("");
@@ -164,12 +166,13 @@ export default function PosPage() {
   }, []);
 
   const total = items.reduce((sum, i) => sum + i.precio * i.cantidad, 0);
+  const totalFinalNum = Number(totalFinal) || total;
 
   const sumaPagos = pagos.reduce(
     (sum, p) => sum + (Number(p.monto) || 0),
     0
   );
-  const faltaPago = total - sumaPagos;
+  const faltaPago = totalFinalNum - sumaPagos;
 
   const filtrados = query
     ? productos.filter(
@@ -226,11 +229,13 @@ export default function PosPage() {
       return;
     }
     setPagos([{ metodo: "efectivo", monto: "" }]);
+    setTotalFinal(String(total));
+    setMotivoDescuento("");
     setShowPagos(true);
   }
 
   function pagoRapido(metodo: MetodoPago) {
-    setPagos([{ metodo, monto: String(total) }]);
+    setPagos([{ metodo, monto: String(totalFinalNum) }]);
   }
 
   function actualizarPago(index: number, monto: string) {
@@ -248,15 +253,25 @@ export default function PosPage() {
       const usados = prev.map((p) => p.metodo);
       const disponible = METODOS.find((m) => !usados.includes(m.id));
       if (!disponible) return prev;
-      const restante = total - prev.reduce((s, p) => s + (Number(p.monto) || 0), 0);
+      const restante = totalFinalNum - prev.reduce((s, p) => s + (Number(p.monto) || 0), 0);
       return [...prev, { metodo: disponible.id, monto: restante > 0 ? String(restante) : "" }];
     });
   }
 
   async function cobrar() {
-    if (Math.abs(sumaPagos - total) > 0.001) {
+    const totalFinalNum = Number(totalFinal) || 0;
+    const descuento = total - totalFinalNum;
+    if (descuento < -0.001) {
+      setError("El total final no puede superar el subtotal");
+      return;
+    }
+    if (descuento > 0.001 && motivoDescuento.trim().length < 3) {
+      setError("Indica el motivo del descuento (regateo)");
+      return;
+    }
+    if (Math.abs(sumaPagos - totalFinalNum) > 0.001) {
       setError(
-        `La suma de pagos (${formatCurrency(sumaPagos)}) no coincide con el total (${formatCurrency(total)})`
+        `La suma de pagos (${formatCurrency(sumaPagos)}) no coincide con el total final (${formatCurrency(totalFinalNum)})`
       );
       return;
     }
@@ -273,6 +288,9 @@ export default function PosPage() {
           pagos: pagos
             .filter((p) => Number(p.monto) > 0)
             .map((p) => ({ metodo_pago: p.metodo, monto: Number(p.monto) })),
+          total_final: totalFinalNum,
+          motivo_descuento: descuento > 0.001 ? motivoDescuento : undefined,
+          idempotency_key: crypto.randomUUID(),
         },
         token
       );
@@ -910,9 +928,43 @@ export default function PosPage() {
 
             <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm mb-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Total</span>
+                <span className="text-gray-500">Subtotal</span>
                 <span className="font-bold">{formatCurrency(total)}</span>
               </div>
+              <div>
+                <label className="block text-gray-500 mb-1">
+                  Total final (regateo)
+                </label>
+                <input
+                  type="number"
+                  className="input-field !py-2 font-bold text-lg"
+                  value={totalFinal}
+                  onChange={(e) => setTotalFinal(e.target.value)}
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+              {Number(total) - (Number(totalFinal) || 0) > 0.001 && (
+                <>
+                  <div className="flex justify-between text-green-600">
+                    <span>Descuento</span>
+                    <span className="font-semibold">
+                      -{formatCurrency(Number(total) - (Number(totalFinal) || 0))}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-1">
+                      Motivo del descuento *
+                    </label>
+                    <input
+                      className="input-field !py-2"
+                      value={motivoDescuento}
+                      onChange={(e) => setMotivoDescuento(e.target.value)}
+                      placeholder="Ej. cliente mayorista"
+                    />
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-500">Suma de pagos</span>
                 <span className="font-semibold">{formatCurrency(sumaPagos)}</span>

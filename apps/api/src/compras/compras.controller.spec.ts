@@ -3,6 +3,7 @@ import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { ComprasController } from "./compras.controller";
 import { PrismaService } from "../prisma/prisma.service";
 import { createPrismaMock } from "../../test/utils";
+import { PrecioHistoricoService } from "../inventario/precio-historico.service";
 
 describe("ComprasController", () => {
   let controller: ComprasController;
@@ -10,13 +11,26 @@ describe("ComprasController", () => {
 
   beforeEach(async () => {
     prisma = createPrismaMock();
-    prisma.producto.findUnique.mockResolvedValue({ unidad_medida: "unidad" });
+    prisma.producto.findUnique.mockResolvedValue({
+      id: "p1",
+      unidad_medida: "unidad",
+      stock: 10,
+      costo: 4,
+      precio: 8,
+    });
+    prisma.producto.update.mockResolvedValue({ id: "p1" });
     prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
       fn(prisma)
     );
     const module = await Test.createTestingModule({
       controllers: [ComprasController],
-      providers: [{ provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: PrecioHistoricoService,
+          useValue: { registrar: jest.fn(), costoPromedio: jest.fn() },
+        },
+      ],
     }).compile();
 
     controller = module.get<ComprasController>(ComprasController);
@@ -34,9 +48,9 @@ describe("ComprasController", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("crea la compra, calcula total e incrementa stock y costo", async () => {
+  it("crea la compra, registra movimiento e incrementa stock y costo", async () => {
     prisma.compra.create.mockResolvedValue({ id: "compra-1", items: [] });
-    prisma.producto.update.mockResolvedValue({ id: "p1" });
+    prisma.inventarioMovimiento.create.mockResolvedValue({ id: "mov-1" });
 
     await controller.crear(
       {
@@ -54,21 +68,17 @@ describe("ComprasController", () => {
         data: expect.objectContaining({
           proveedor_nombre: "Distribuidora ABC",
           usuario_id: "u1",
-          total: expect.anything(), // 10*5 + 4*3
+          total: expect.anything(),
         }),
       })
     );
-    // stock incrementado en ambos productos
+    // Se registra movimiento de inventario por cada producto.
+    expect(prisma.inventarioMovimiento.create).toHaveBeenCalled();
+    // Stock actualizado con costo nuevo.
     expect(prisma.producto.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "p1" },
-        data: { stock: { increment: 10 }, costo: 5 },
-      })
-    );
-    expect(prisma.producto.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "p2" },
-        data: { stock: { increment: 4 }, costo: 3 },
+        data: { costo: expect.anything() },
       })
     );
   });
@@ -84,5 +94,57 @@ describe("ComprasController", () => {
       })
     );
     expect(result).toHaveLength(1);
+  });
+
+  describe("anular", () => {
+    it("lanza BadRequest sin motivo", async () => {
+      await expect(
+        controller.anular("compra-1", { motivo: "" } as never, {
+          user: { sub: "u1" },
+        } as never)
+      ).rejects.toThrow("motivo");
+    });
+
+    it("anula la compra y revierte stock con movimiento", async () => {
+      prisma.compra.findUnique.mockResolvedValue({
+        id: "compra-1",
+        estado: "registrada",
+        items: [
+          { producto_id: "p1", cantidad: { toNumber: () => 10, negated: () => ({ toNumber: () => -10 }) } },
+        ],
+      });
+      prisma.producto.findUnique.mockResolvedValue({
+        id: "p1",
+        stock: 20,
+      });
+      prisma.producto.update.mockResolvedValue({ id: "p1" });
+      prisma.inventarioMovimiento.create.mockResolvedValue({ id: "mov-1" });
+      prisma.compra.update.mockResolvedValue({
+        id: "compra-1",
+        estado: "anulada",
+      });
+
+      const result = await controller.anular(
+        "compra-1",
+        { motivo: "error de recepción" } as never,
+        { user: { sub: "u1" } } as never
+      );
+
+      expect(prisma.inventarioMovimiento.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tipo: "devolucion_proveedor",
+            compra_id: "compra-1",
+          }),
+        })
+      );
+      expect(prisma.compra.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "compra-1" },
+          data: expect.objectContaining({ estado: "anulada" }),
+        })
+      );
+      expect(result).toBeDefined();
+    });
   });
 });
