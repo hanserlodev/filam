@@ -17,12 +17,14 @@ import {
   LogOut,
   Menu,
   X,
+  Receipt,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 const menuItems = [
   { icon: ShoppingCart, label: "POS", href: "/pos" },
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: Receipt, label: "Ventas", href: "/ventas" },
   { icon: Package, label: "Productos", href: "/productos" },
   { icon: Tag, label: "Categorías", href: "/categorias" },
   { icon: Wallet, label: "Caja", href: "/caja" },

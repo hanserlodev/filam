@@ -14,18 +14,20 @@ import {
 import {
   FormatoImpresion,
   MetodoPago,
+  Prisma,
   TipoComprobante,
   UnidadMedida,
-  Prisma,
 } from "@prisma/client";
 import {
   IsArray,
-  isISO8601,
-  isUUID,
   IsIn,
+  isISO8601,
   IsNumber,
   IsOptional,
+  isUUID,
+  IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -43,10 +45,21 @@ class VentaItemDto {
   cantidad: number;
 }
 
-class CrearVentaDto {
+class VentaPagoDto {
   @IsIn(Object.values(MetodoPago))
   metodo_pago: MetodoPago;
 
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  monto: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  referencia?: string;
+}
+
+class CrearVentaDto {
   @IsOptional()
   @IsIn(Object.values(TipoComprobante))
   tipo_comprobante?: TipoComprobante;
@@ -63,6 +76,17 @@ class CrearVentaDto {
   @ValidateNested({ each: true })
   @Type(() => VentaItemDto)
   items: VentaItemDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VentaPagoDto)
+  pagos: VentaPagoDto[];
+}
+
+class AnularVentaDto {
+  @IsString()
+  @MaxLength(300)
+  motivo: string;
 }
 
 @Controller("ventas")
@@ -75,6 +99,7 @@ export class VentasController {
     @Query("fechaInicio") fechaInicio?: string,
     @Query("fechaFin") fechaFin?: string,
     @Query("vendedorId") vendedorId?: string,
+    @Query("soloActivas") soloActivas?: string,
     @Req() request?: AuthenticatedRequest
   ) {
     const usuarioId = request?.user?.sub;
@@ -97,6 +122,9 @@ export class VentasController {
       throw new BadRequestException("vendedorId debe ser un UUID válido");
     }
     where.vendedor_id = usuario.rol === "administrador" ? vendedorId : usuarioId;
+    if (soloActivas === "true") {
+      where.anulada = false;
+    }
     if (fechaInicio || fechaFin) {
       if (
         (fechaInicio && !isISO8601(fechaInicio)) ||
@@ -114,6 +142,7 @@ export class VentasController {
       where,
       include: {
         items: { include: { producto: { select: { nombre: true } } } },
+        pagos: true,
         vendedor: { select: { nombre: true } },
         cliente: { select: { nombre: true } },
       },
@@ -148,6 +177,7 @@ export class VentasController {
             producto: { select: { nombre: true, unidad_medida: true } },
           },
         },
+        pagos: true,
         vendedor: { select: { nombre: true } },
         cajaSesion: { select: { id: true, abierta_en: true } },
       },
@@ -163,6 +193,11 @@ export class VentasController {
 
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException("La venta debe tener al menos un ítem");
+    }
+    if (!dto.pagos || dto.pagos.length === 0) {
+      throw new BadRequestException(
+        "La venta debe tener al menos un método de pago"
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -215,21 +250,42 @@ export class VentasController {
         });
       }
 
-      // 3. Crear venta + items
+      // 3. Validar que la suma de pagos sea exactamente el total
+      const totalPagos = dto.pagos.reduce(
+        (sum, p) => sum.plus(toMoney(p.monto)),
+        new Prisma.Decimal(0)
+      );
+      const totalVenta = toMoney(total);
+      if (!totalPagos.eq(totalVenta)) {
+        throw new BadRequestException(
+          `La suma de pagos (S/ ${totalPagos}) no coincide con el total de la venta (S/ ${totalVenta})`
+        );
+      }
+
+      const metodoPrincipal = dto.pagos[0].metodo_pago;
+
+      // 4. Crear venta + items + pagos
       const venta = await tx.venta.create({
         data: {
           caja_sesion_id: caja.id,
           vendedor_id: vendedorId,
           cliente_id: dto.cliente_id,
-          metodo_pago: dto.metodo_pago,
+          metodo_pago: metodoPrincipal,
           tipo_comprobante: dto.tipo_comprobante ?? TipoComprobante.nota_venta,
           formato_impresion: dto.formato_impresion ?? FormatoImpresion.termica,
-          total: toMoney(total),
+          total: totalVenta,
           items: {
             create: detalles.map((d) => ({
               producto_id: d.producto_id,
               cantidad: d.cantidad,
               precio_unitario: d.precio_unitario,
+            })),
+          },
+          pagos: {
+            create: dto.pagos.map((p) => ({
+              metodo_pago: p.metodo_pago,
+              monto: toMoney(p.monto),
+              referencia: p.referencia,
             })),
           },
         },
@@ -239,10 +295,11 @@ export class VentasController {
               producto: { select: { nombre: true, unidad_medida: true } },
             },
           },
+          pagos: true,
         },
       });
 
-      // 4. Descontar stock de forma atómica (concurrencia)
+      // 5. Descontar stock de forma atómica (concurrencia)
       for (const detalle of detalles) {
         const resultado = await tx.producto.updateMany({
           where: {
@@ -259,6 +316,81 @@ export class VentasController {
       }
 
       return venta;
+    });
+  }
+
+  @Post("anular/:id")
+  async anular(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AnularVentaDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    const usuarioId = request.user?.sub;
+    if (!usuarioId) throw new UnauthorizedException();
+    if (!dto.motivo || dto.motivo.trim().length < 3) {
+      throw new BadRequestException(
+        "Debes indicar un motivo válido para anular la venta"
+      );
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { rol: true, activo: true },
+    });
+    if (!usuario || !usuario.activo) throw new UnauthorizedException();
+
+    return this.prisma.$transaction(async (tx) => {
+      const venta = await tx.venta.findFirst({
+        where: { id },
+        include: { items: true },
+      });
+      if (!venta) throw new NotFoundException("Venta no encontrada");
+      if (venta.anulada) {
+        throw new BadRequestException("Esta venta ya fue anulada");
+      }
+
+      // Cajero solo puede anular ventas de su propia caja abierta.
+      if (usuario.rol === "cajero") {
+        const caja = await tx.cajaSesion.findFirst({
+          where: { usuario_id: usuarioId, estado: "abierta" },
+        });
+        if (!caja || caja.id !== venta.caja_sesion_id) {
+          throw new BadRequestException(
+            "Solo puedes anular ventas de tu caja abierta actual"
+          );
+        }
+        if (venta.vendedor_id !== usuarioId) {
+          throw new BadRequestException(
+            "Solo puedes anular tus propias ventas"
+          );
+        }
+      }
+
+      // Revertir stock
+      for (const item of venta.items) {
+        await tx.producto.update({
+          where: { id: item.producto_id },
+          data: { stock: { increment: item.cantidad } },
+        });
+      }
+
+      return tx.venta.update({
+        where: { id },
+        data: {
+          anulada: true,
+          anulada_en: new Date(),
+          anulada_por_id: usuarioId,
+          motivo_anulacion: dto.motivo,
+        },
+        include: {
+          items: {
+            include: {
+              producto: { select: { nombre: true, unidad_medida: true } },
+            },
+          },
+          pagos: true,
+        },
+      });
     });
   }
 }

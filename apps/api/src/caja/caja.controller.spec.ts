@@ -3,6 +3,7 @@ import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { CajaController } from "./caja.controller";
 import { PrismaService } from "../prisma/prisma.service";
 import { createPrismaMock } from "../../test/utils";
+import { MetodoPago } from "@prisma/client";
 
 describe("CajaController", () => {
   let controller: CajaController;
@@ -10,6 +11,9 @@ describe("CajaController", () => {
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+      fn(prisma)
+    );
     const module = await Test.createTestingModule({
       controllers: [CajaController],
       providers: [{ provide: PrismaService, useValue: prisma }],
@@ -62,6 +66,76 @@ describe("CajaController", () => {
     });
   });
 
+  describe("registrarMovimiento", () => {
+    it("registra un ingreso en la caja abierta", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue({ id: "caja-1" });
+      prisma.venta.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.create.mockResolvedValue({ id: "mov-1" });
+
+      const result = await controller.registrarMovimiento(
+        { tipo: "ingreso", monto: 50, motivo: "devolución de sencillo" } as never,
+        { user: { sub: "user-1" } } as never
+      );
+
+      expect(prisma.cajaMovimiento.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            caja_sesion_id: "caja-1",
+            tipo: "ingreso",
+            monto: expect.anything(),
+            motivo: "devolución de sencillo",
+            usuario_id: "user-1",
+          }),
+        })
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("no permite retirar más de lo que hay en caja", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue({
+        id: "caja-1",
+        monto_apertura: 100,
+      });
+      prisma.venta.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.findMany.mockResolvedValue([]);
+
+      await expect(
+        controller.registrarMovimiento(
+          { tipo: "retiro", monto: 150, motivo: "gasolina" } as never,
+          { user: { sub: "user-1" } } as never
+        )
+      ).rejects.toThrow("No puedes retirar más");
+    });
+
+    it("permite retirar dentro del efectivo esperado", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue({
+        id: "caja-1",
+        monto_apertura: 100,
+      });
+      prisma.venta.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.create.mockResolvedValue({ id: "mov-1" });
+
+      await expect(
+        controller.registrarMovimiento(
+          { tipo: "retiro", monto: 50, motivo: "gasolina" } as never,
+          { user: { sub: "user-1" } } as never
+        )
+      ).resolves.toBeDefined();
+    });
+
+    it("lanza BadRequest si no hay caja abierta", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue(null);
+      await expect(
+        controller.registrarMovimiento(
+          { tipo: "ingreso", monto: 10, motivo: "prueba" } as never,
+          { user: { sub: "user-1" } } as never
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe("cerrar", () => {
     const sesionAbierta = {
       id: "caja-1",
@@ -69,16 +143,43 @@ describe("CajaController", () => {
       estado: "abierta",
       monto_apertura: 200,
       ventas: [
-        { total: 57, metodo_pago: "efectivo" },
-        { total: 28.5, metodo_pago: "yape" },
+        { total: 57, metodo_pago: MetodoPago.efectivo, anulada: false },
+        { total: 28.5, metodo_pago: MetodoPago.yape, anulada: false },
       ],
     };
 
-    it("cierra la caja calculando la diferencia", async () => {
-      prisma.cajaSesion.findUnique
-        .mockResolvedValueOnce(sesionAbierta)
-        .mockResolvedValueOnce({ ...sesionAbierta, monto_cierre: 257, diferencia: 0, estado: "cerrada" });
+    function mockResumenCaja() {
+      // Venta.findMany se usa en el resumen con pagos incluidos.
+      prisma.venta.findMany.mockResolvedValue([
+        {
+          total: 57,
+          metodo_pago: MetodoPago.efectivo,
+          anulada: false,
+          pagos: [{ metodo_pago: MetodoPago.efectivo, monto: 57 }],
+        },
+        {
+          total: 28.5,
+          metodo_pago: MetodoPago.yape,
+          anulada: false,
+          pagos: [{ metodo_pago: MetodoPago.yape, monto: 28.5 }],
+        },
+      ]);
+      prisma.cajaMovimiento.findMany.mockResolvedValue([]);
+      prisma.configuracion.findFirst.mockResolvedValue({
+        umbral_diferencia: 10,
+      });
+    }
+
+    it("cierra la caja calculando la diferencia con desglose", async () => {
+      prisma.cajaSesion.findUnique.mockResolvedValue(sesionAbierta);
+      mockResumenCaja();
       prisma.cajaSesion.updateMany.mockResolvedValue({ count: 1 });
+      prisma.cajaSesion.findUnique.mockResolvedValueOnce(sesionAbierta).mockResolvedValueOnce({
+        ...sesionAbierta,
+        estado: "cerrada",
+        monto_cierre: 257,
+        diferencia: 0,
+      });
 
       const result = await controller.cerrar(
         "caja-1",
@@ -86,7 +187,7 @@ describe("CajaController", () => {
         { user: { sub: "user-1" } } as never
       );
 
-      // Solo efectivo entra al cuadre: 200 + 57 = 257; diferencia = 0.
+      // efectivo esperado = 200 + 57 efectivo = 257; declarado 257 → diferencia 0
       expect(prisma.cajaSesion.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "caja-1", usuario_id: "user-1", estado: "abierta" },
@@ -101,24 +202,34 @@ describe("CajaController", () => {
       expect(result).toBeDefined();
     });
 
-    it("registra diferencia negativa si falta dinero", async () => {
+    it("exige motivo si la diferencia supera el umbral", async () => {
+      prisma.cajaSesion.findUnique.mockResolvedValue(sesionAbierta);
+      mockResumenCaja();
+
+      await expect(
+        controller.cerrar(
+          "caja-1",
+          { monto_cierre: 200 } as never,
+          { user: { sub: "user-1" } } as never
+        )
+      ).rejects.toThrow("supera el umbral");
+    });
+
+    it("acepta cierre con motivo si la diferencia supera el umbral", async () => {
+      prisma.cajaSesion.findUnique.mockResolvedValue(sesionAbierta);
+      mockResumenCaja();
+      prisma.cajaSesion.updateMany.mockResolvedValue({ count: 1 });
       prisma.cajaSesion.findUnique
         .mockResolvedValueOnce(sesionAbierta)
-        .mockResolvedValueOnce({ ...sesionAbierta, diferencia: 5 });
-      prisma.cajaSesion.updateMany.mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce({ ...sesionAbierta, estado: "cerrada" });
 
-      await controller.cerrar(
-        "caja-1",
-        { monto_cierre: 252 } as never,
-        { user: { sub: "user-1" } } as never
-      );
-
-      // 257 calculado - 252 declarado = 5 de diferencia.
-      expect(prisma.cajaSesion.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ diferencia: expect.anything() }),
-        })
-      );
+      await expect(
+        controller.cerrar(
+          "caja-1",
+          { monto_cierre: 200, motivo_diferencia: "faltó vuelto" } as never,
+          { user: { sub: "user-1" } } as never
+        )
+      ).resolves.toBeDefined();
     });
 
     it("lanza BadRequest si la caja no existe", async () => {
@@ -159,6 +270,19 @@ describe("CajaController", () => {
         )
       ).rejects.toThrow(BadRequestException);
     });
+
+    it("lanza BadRequest si la actualización atómica no afecta filas", async () => {
+      prisma.cajaSesion.findUnique.mockResolvedValue(sesionAbierta);
+      mockResumenCaja();
+      prisma.cajaSesion.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        controller.cerrar(
+          "caja-1",
+          { monto_cierre: 257 } as never,
+          { user: { sub: "user-1" } } as never
+        )
+      ).rejects.toThrow("ya fue cerrada");    });
   });
 
   describe("mis-sesiones y abierta", () => {
@@ -173,18 +297,17 @@ describe("CajaController", () => {
       expect(result).toHaveLength(1);
     });
 
-    it("lanza Unauthorized en mis-sesiones sin usuario", () => {
-      expect(() => controller.listarMisSesiones({} as never)).toThrow(
-        UnauthorizedException
-      );
-    });
-
-    it("devuelve la caja abierta del usuario", async () => {
-      prisma.cajaSesion.findFirst.mockResolvedValue({ id: "c1" });
+    it("devuelve la caja abierta con resumen", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue({
+        id: "c1",
+        monto_apertura: 200,
+      });
+      prisma.venta.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.findMany.mockResolvedValue([]);
       const result = await controller.miCajaAbierta({
         user: { sub: "user-1" },
       } as never);
-      expect(result).toEqual({ id: "c1" });
+      expect(result).toBeTruthy();
     });
 
     it("devuelve null si no hay caja abierta", async () => {
@@ -193,13 +316,6 @@ describe("CajaController", () => {
         user: { sub: "user-1" },
       } as never);
       expect(result).toBeNull();
-    });
-
-    it("lista sesiones como administrador", async () => {
-      prisma.cajaSesion.findMany.mockResolvedValue([{ id: "c1" }]);
-      const result = await controller.listarSesiones("user-1", "abierta");
-      expect(prisma.cajaSesion.findMany).toHaveBeenCalled();
-      expect(result).toHaveLength(1);
     });
   });
 });

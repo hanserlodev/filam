@@ -1,6 +1,13 @@
 import { Controller, Get, Put, Body } from "@nestjs/common";
 import { RolUsuario } from "@prisma/client";
-import { IsArray, IsIn, IsOptional, IsString } from "class-validator";
+import {
+  IsArray,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from "class-validator";
 import { Roles } from "../auth/roles.decorator";
 import { PrismaService } from "../prisma/prisma.service";
 import { FormatoImpresion, MetodoPago, Prisma } from "@prisma/client";
@@ -33,6 +40,11 @@ class ConfiguracionDto {
   @IsOptional()
   @IsString()
   instagram?: string;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  umbral_diferencia?: number;
 
   @IsOptional()
   @IsIn(Object.values(FormatoImpresion))
@@ -77,6 +89,8 @@ export class ConfiguracionController {
     if (dto.email !== undefined) data.email = dto.email;
     if (dto.web !== undefined) data.web = dto.web;
     if (dto.instagram !== undefined) data.instagram = dto.instagram;
+    if (dto.umbral_diferencia !== undefined)
+      data.umbral_diferencia = dto.umbral_diferencia;
     if (dto.formato_impresion !== undefined) data.formato_impresion = dto.formato_impresion;
     if (dto.metodos_pago !== undefined) data.metodos_pago = dto.metodos_pago;
     if (dto.extras_contratados !== undefined)

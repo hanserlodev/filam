@@ -32,6 +32,12 @@ export const TipoComprobante = {
 export const FormatoImpresion = {
   termica: "termica",
   a4: "a4",
+  boleta_propia: "boleta_propia",
+} as const;
+
+export const TipoMovimientoCaja = {
+  ingreso: "ingreso",
+  retiro: "retiro",
 } as const;
 
 export const Prisma = {
@@ -63,8 +69,24 @@ export const Prisma = {
       return new Prisma.Decimal(this.value * Number(value));
     }
 
+    div(value: { value: number } | number | string) {
+      return new Prisma.Decimal(this.value / Number(value));
+    }
+
     lt(value: { value: number } | number | string) {
       return this.value < Number(value);
+    }
+
+    gt(value: { value: number } | number | string) {
+      return this.value > Number(value);
+    }
+
+    eq(value: { value: number } | number | string) {
+      return this.value === Number(value);
+    }
+
+    abs() {
+      return new Prisma.Decimal(Math.abs(this.value));
     }
 
     isInteger() {

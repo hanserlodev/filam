@@ -10,6 +10,7 @@ interface Configuracion {
   ruc: string | null;
   direccion: string | null;
   telefono: string | null;
+  umbral_diferencia: number;
   formato_impresion: "termica" | "a4";
   metodos_pago: string[];
   actualizado_en: string;
@@ -25,6 +26,7 @@ export default function ConfiguracionPage() {
     ruc: "",
     direccion: "",
     telefono: "",
+    umbral_diferencia: "10",
     formato_impresion: "termica" as "termica" | "a4",
     metodos_pago: ["efectivo", "yape"] as string[],
   });
@@ -43,6 +45,7 @@ export default function ConfiguracionPage() {
           ruc: c.ruc || "",
           direccion: c.direccion || "",
           telefono: c.telefono || "",
+          umbral_diferencia: String(c.umbral_diferencia ?? 10),
           formato_impresion: c.formato_impresion,
           metodos_pago: c.metodos_pago,
         });
@@ -71,6 +74,7 @@ export default function ConfiguracionPage() {
           ruc: form.ruc || undefined,
           direccion: form.direccion || undefined,
           telefono: form.telefono || undefined,
+          umbral_diferencia: Number(form.umbral_diferencia) || 10,
           formato_impresion: form.formato_impresion,
           metodos_pago: form.metodos_pago,
         },
@@ -137,6 +141,23 @@ export default function ConfiguracionPage() {
               onChange={(e) => setForm({ ...form, telefono: e.target.value })}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Umbral de diferencia de caja (S/.)
+          </label>
+          <p className="text-xs text-gray-400 mb-2">
+            Si al cerrar la caja la diferencia supera este monto, se pedirá un motivo.
+          </p>
+          <input
+            type="number"
+            className="input-field max-w-xs"
+            value={form.umbral_diferencia}
+            onChange={(e) => setForm({ ...form, umbral_diferencia: e.target.value })}
+            min="0"
+            step="0.5"
+          />
         </div>
 
         <div>

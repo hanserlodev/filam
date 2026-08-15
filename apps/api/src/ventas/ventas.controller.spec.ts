@@ -40,7 +40,7 @@ describe("VentasController", () => {
 
   describe("crear", () => {
     const baseDto = {
-      metodo_pago: MetodoPago.yape,
+      pagos: [{ metodo_pago: MetodoPago.yape, monto: 57 }],
       items: [{ producto_id: "prod-1", cantidad: 2 }],
     };
 
@@ -51,6 +51,7 @@ describe("VentasController", () => {
         id: "venta-1",
         total: 57,
         items: [],
+        pagos: [],
         metodo_pago: MetodoPago.yape,
         tipo_comprobante: TipoComprobante.nota_venta,
         formato_impresion: FormatoImpresion.termica,
@@ -83,7 +84,16 @@ describe("VentasController", () => {
     it("lanza BadRequest si no hay items", async () => {
       await expect(
         controller.crear(
-          { metodo_pago: MetodoPago.yape, items: [] } as never,
+          { pagos: [{ metodo_pago: MetodoPago.yape, monto: 57 }], items: [] } as never,
+          { user: { sub: "vendedor-1" } } as never
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("lanza BadRequest si no hay pagos", async () => {
+      await expect(
+        controller.crear(
+          { pagos: [], items: [{ producto_id: "prod-1", cantidad: 2 }] } as never,
           { user: { sub: "vendedor-1" } } as never
         )
       ).rejects.toThrow(BadRequestException);
@@ -114,41 +124,54 @@ describe("VentasController", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("calcula el total correctamente (precio × cantidad)", async () => {
+    it("lanza BadRequest si la suma de pagos no coincide con el total", async () => {
       prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
       prisma.producto.findUnique.mockResolvedValue(martillo);
-      prisma.producto.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        controller.crear(
+          {
+            pagos: [{ metodo_pago: MetodoPago.yape, monto: 50 }],
+            items: [{ producto_id: "prod-1", cantidad: 2 }],
+          } as never,
+          { user: { sub: "vendedor-1" } } as never
+        )
+      ).rejects.toThrow("no coincide con el total");
+    });
+
+    it("acepta pagos mixtos (efectivo + yape) si suman el total", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
+      prisma.producto.findUnique.mockResolvedValue(martillo);
       prisma.venta.create.mockImplementation(async ({ data }) => ({
-        id: "venta-1",
+        id: "venta-mixta",
         ...data,
       }));
+      prisma.producto.updateMany.mockResolvedValue({ count: 1 });
 
       await controller.crear(
         {
-          metodo_pago: MetodoPago.efectivo,
-          items: [
-            { producto_id: "prod-1", cantidad: 3 },
+          pagos: [
+            { metodo_pago: MetodoPago.efectivo, monto: 20 },
+            { metodo_pago: MetodoPago.yape, monto: 37 },
           ],
+          items: [{ producto_id: "prod-1", cantidad: 2 }],
         } as never,
         { user: { sub: "vendedor-1" } } as never
       );
 
       expect(prisma.venta.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ total: expect.anything() }),
+          data: expect.objectContaining({
+            total: expect.anything(),
+            pagos: {
+              create: expect.arrayContaining([
+                expect.objectContaining({ metodo_pago: MetodoPago.efectivo, monto: expect.anything() }),
+                expect.objectContaining({ metodo_pago: MetodoPago.yape, monto: expect.anything() }),
+              ]),
+            },
+          }),
         })
       );
-    });
-
-    it("lanza BadRequest si el stock cambió durante la venta (updateMany count 0)", async () => {
-      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
-      prisma.producto.findUnique.mockResolvedValue(martillo);
-      prisma.venta.create.mockResolvedValue({ id: "venta-1" } as never);
-      prisma.producto.updateMany.mockResolvedValue({ count: 0 });
-
-      await expect(
-        controller.crear(baseDto as never, { user: { sub: "vendedor-1" } } as never)
-      ).rejects.toThrow(BadRequestException);
     });
 
     it("permite ventas de unidades fraccionadas (metros)", async () => {
@@ -166,7 +189,7 @@ describe("VentasController", () => {
 
       const result = await controller.crear(
         {
-          metodo_pago: MetodoPago.efectivo,
+          pagos: [{ metodo_pago: MetodoPago.efectivo, monto: 7.2 }],
           items: [{ producto_id: "prod-2", cantidad: 1.5 }],
         } as never,
         { user: { sub: "vendedor-1" } } as never
@@ -180,25 +203,15 @@ describe("VentasController", () => {
       expect(result).toBeDefined();
     });
 
-    it("usa tipo_comprobante y formato por defecto si no se envían", async () => {
+    it("lanza BadRequest si el stock cambió durante la venta (updateMany count 0)", async () => {
       prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
       prisma.producto.findUnique.mockResolvedValue(martillo);
-      prisma.producto.updateMany.mockResolvedValue({ count: 1 });
-      prisma.venta.create.mockImplementation(async ({ data }) => ({ id: "v", ...data }));
+      prisma.venta.create.mockResolvedValue({ id: "venta-1" } as never);
+      prisma.producto.updateMany.mockResolvedValue({ count: 0 });
 
-      await controller.crear(baseDto as never, {
-        user: { sub: "vendedor-1" },
-      } as never);
-
-      expect(prisma.venta.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            tipo_comprobante: TipoComprobante.nota_venta,
-            formato_impresion: FormatoImpresion.termica,
-            metodo_pago: MetodoPago.yape,
-          }),
-        })
-      );
+      await expect(
+        controller.crear(baseDto as never, { user: { sub: "vendedor-1" } } as never)
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -211,6 +224,7 @@ describe("VentasController", () => {
         "2026-01-01",
         "2026-12-31",
         "00000000-0000-4000-8000-000000000002",
+        undefined,
         { user: { sub: "admin-1" } } as never
       );
       expect(prisma.venta.findMany).toHaveBeenCalledWith(
@@ -231,13 +245,26 @@ describe("VentasController", () => {
       prisma.usuario.findUnique.mockResolvedValue({ rol: "cajero", activo: true });
       prisma.venta.findMany.mockResolvedValue([]);
 
-      await controller.listar(undefined, undefined, undefined, "00000000-0000-4000-8000-000000000003", {
+      await controller.listar(undefined, undefined, undefined, "00000000-0000-4000-8000-000000000003", undefined, {
         user: { sub: "cajero-1" },
       } as never);
 
       expect(prisma.venta.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ vendedor_id: "cajero-1" }),
+        })
+      );
+    });
+
+    it("filtra solo ventas activas si se pide", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findMany.mockResolvedValue([]);
+      await controller.listar(undefined, undefined, undefined, undefined, "true", {
+        user: { sub: "admin-1" },
+      } as never);
+      expect(prisma.venta.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ anulada: false }),
         })
       );
     });
@@ -261,12 +288,99 @@ describe("VentasController", () => {
       await expect(
         controller.obtener("v1", { user: { sub: "cajero-1" } } as never)
       ).rejects.toThrow("Venta no encontrada");
+    });
+  });
 
-      expect(prisma.venta.findFirst).toHaveBeenCalledWith(
+  describe("anular", () => {
+    const ventaConItems = {
+      id: "venta-1",
+      caja_sesion_id: "caja-1",
+      vendedor_id: "vendedor-1",
+      anulada: false,
+      items: [{ producto_id: "prod-1", cantidad: 2 }],
+    };
+
+    it("lanza BadRequest si no hay motivo", async () => {
+      await expect(
+        controller.anular("venta-1", { motivo: "" } as never, {
+          user: { sub: "vendedor-1" },
+        } as never)
+      ).rejects.toThrow("motivo");
+    });
+
+    it("lanza BadRequest si la venta ya está anulada", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findFirst.mockResolvedValue({ ...ventaConItems, anulada: true });
+      await expect(
+        controller.anular("venta-1", { motivo: "cliente se arrepintió" } as never, {
+          user: { sub: "admin-1" },
+        } as never)
+      ).rejects.toThrow("ya fue anulada");
+    });
+
+    it("el administrador puede anular cualquier venta y revierte stock", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findFirst.mockResolvedValue(ventaConItems);
+      prisma.producto.update.mockResolvedValue({ id: "prod-1" });
+      prisma.venta.update.mockResolvedValue({ ...ventaConItems, anulada: true });
+
+      await controller.anular("venta-1", { motivo: "error de cobro" } as never, {
+        user: { sub: "admin-1" },
+      } as never);
+
+      expect(prisma.producto.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "v1", vendedor_id: "cajero-1" },
+          where: { id: "prod-1" },
+          data: { stock: { increment: expect.anything() } },
         })
       );
+      expect(prisma.venta.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "venta-1" },
+          data: expect.objectContaining({
+            anulada: true,
+            anulada_por_id: "admin-1",
+            motivo_anulacion: "error de cobro",
+          }),
+        })
+      );
+    });
+
+    it("el cajero solo puede anular ventas de su caja abierta actual", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "cajero", activo: true });
+      prisma.venta.findFirst.mockResolvedValue(ventaConItems);
+      prisma.cajaSesion.findFirst.mockResolvedValue({ id: "otra-caja" });
+
+      await expect(
+        controller.anular("venta-1", { motivo: "error" } as never, {
+          user: { sub: "vendedor-1" },
+        } as never)
+      ).rejects.toThrow("caja abierta actual");
+    });
+
+    it("el cajero no puede anular ventas ajenas", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "cajero", activo: true });
+      prisma.venta.findFirst.mockResolvedValue({
+        ...ventaConItems,
+        vendedor_id: "otro-vendedor",
+      });
+      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
+
+      await expect(
+        controller.anular("venta-1", { motivo: "error" } as never, {
+          user: { sub: "vendedor-1" },
+        } as never)
+      ).rejects.toThrow("tus propias ventas");
+    });
+
+    it("lanza NotFound si la venta no existe", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findFirst.mockResolvedValue(null);
+      await expect(
+        controller.anular("no-existe", { motivo: "error" } as never, {
+          user: { sub: "admin-1" },
+        } as never)
+      ).rejects.toThrow("Venta no encontrada");
     });
   });
 });

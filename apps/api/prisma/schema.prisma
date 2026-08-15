@@ -49,6 +49,11 @@ enum FormatoImpresion {
   boleta_propia
 }
 
+enum TipoMovimientoCaja {
+  ingreso
+  retiro
+}
+
 model Usuario {
   id        String     @id @default(uuid())
   nombre    String     @db.VarChar(150)
@@ -60,6 +65,9 @@ model Usuario {
   cajaSesiones CajaSesion[]
   ventas       Venta[]
   compras      Compra[]
+  ventasAnuladas Venta[]      @relation("VentaAnuladaPor")
+  movimientosCaja CajaMovimiento[]
+  evidenciasSubidas CajaEvidencia[]
 
   @@map("usuarios")
 }
@@ -107,11 +115,19 @@ model CajaSesion {
   monto_apertura Decimal     @db.Decimal(10, 2)
   monto_cierre   Decimal?    @db.Decimal(10, 2)
   diferencia     Decimal?    @db.Decimal(10, 2)
+  total_efectivo Decimal?    @db.Decimal(10, 2)
+  total_digital  Decimal?    @db.Decimal(10, 2)
+  total_ingresos Decimal?    @db.Decimal(10, 2)
+  total_retiros  Decimal?    @db.Decimal(10, 2)
+  monto_esperado Decimal?    @db.Decimal(10, 2)
+  motivo_diferencia String?  @db.VarChar(300)
   abierta_en     DateTime    @default(now()) @db.Timestamptz(6)
   cerrada_en     DateTime?   @db.Timestamptz(6)
   estado         EstadoCaja  @default(abierta)
 
-  ventas Venta[]
+  ventas    Venta[]
+  movimientos CajaMovimiento[]
+  evidencias CajaEvidencia[]
 
   @@index([usuario_id])
   @@map("caja_sesiones")
@@ -142,9 +158,15 @@ model Venta {
   total             Decimal          @db.Decimal(10, 2)
   comprobante_ref   String?
   formato_impresion FormatoImpresion @default(termica)
+  anulada           Boolean          @default(false)
+  anulada_en        DateTime?        @db.Timestamptz(6)
+  anulada_por_id    String?          @map("anulada_por_id")
+  anulada_por       Usuario?         @relation("VentaAnuladaPor", fields: [anulada_por_id], references: [id])
+  motivo_anulacion  String?          @db.VarChar(300)
   creado_en         DateTime         @default(now()) @db.Timestamptz(6)
 
   items VentaItem[]
+  pagos VentaPago[]
 
   @@index([caja_sesion_id])
   @@index([creado_en])
@@ -199,10 +221,55 @@ model Configuracion {
   email              String?           @db.VarChar(100)
   web                String?           @db.VarChar(150)
   instagram          String?           @db.VarChar(100)
+  umbral_diferencia  Decimal           @default(10) @db.Decimal(10, 2)
   formato_impresion  FormatoImpresion  @default(termica)
   metodos_pago       MetodoPago[]      @default([efectivo])
   extras_contratados Json              @default("{}")
   actualizado_en     DateTime          @updatedAt @db.Timestamptz(6)
 
   @@map("configuracion")
+}
+
+model VentaPago {
+  id          String    @id @default(uuid())
+  venta_id    String    @map("venta_id")
+  venta       Venta     @relation(fields: [venta_id], references: [id])
+  metodo_pago MetodoPago
+  monto       Decimal   @db.Decimal(10, 2)
+  referencia  String?   @db.VarChar(100)
+  creado_en   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([venta_id])
+  @@map("venta_pagos")
+}
+
+model CajaMovimiento {
+  id            String            @id @default(uuid())
+  caja_sesion_id String           @map("caja_sesion_id")
+  cajaSesion    CajaSesion        @relation(fields: [caja_sesion_id], references: [id])
+  tipo          TipoMovimientoCaja
+  monto         Decimal           @db.Decimal(10, 2)
+  motivo        String            @db.VarChar(300)
+  usuario_id    String            @map("usuario_id")
+  usuario       Usuario           @relation(fields: [usuario_id], references: [id])
+  creado_en     DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([caja_sesion_id])
+  @@map("caja_movimientos")
+}
+
+model CajaEvidencia {
+  id            String    @id @default(uuid())
+  caja_sesion_id String   @map("caja_sesion_id")
+  cajaSesion    CajaSesion @relation(fields: [caja_sesion_id], references: [id])
+  ruta_archivo  String    @db.VarChar(300)
+  tipo_archivo  String?   @db.VarChar(50)
+  tamano_bytes  Int?
+  subida_por_id String    @map("subida_por_id")
+  subida_por    Usuario   @relation(fields: [subida_por_id], references: [id])
+  reemplaza_id  String?   @map("reemplaza_id")
+  creado_en     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([caja_sesion_id])
+  @@map("caja_evidencias")
 }
