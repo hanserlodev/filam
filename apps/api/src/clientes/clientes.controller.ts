@@ -33,7 +33,8 @@ export class ClientesController {
 
   @Get()
   @Roles(RolUsuario.administrador)
-  listar(@Query("q") q?: string) {
+  listar(@Query("q") q?: string, @Query("limit") limit?: string) {
+    const limite = Math.min(Math.max(Number(limit) || 100, 1), 500);
     return this.prisma.cliente.findMany({
       where: q
         ? {
@@ -46,6 +47,7 @@ export class ClientesController {
         : undefined,
       include: { _count: { select: { ventas: true } } },
       orderBy: { creado_en: "desc" },
+      take: limite,
     });
   }
 

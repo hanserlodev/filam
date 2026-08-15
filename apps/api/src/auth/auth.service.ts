@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { RolUsuario } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { verificarTokenSupabase } from "./jwt-verify";
+import { fetchWithTimeout } from "../common/fetch-with-timeout";
 
 interface GoTrueAdminResponse {
   id: string;
@@ -68,7 +69,7 @@ export class AuthService {
       throw new ConflictException("Ya existe un usuario con ese email");
     }
 
-    const res = await fetch(`${this.gotrueAdminUrl}/users`, {
+    const res = await fetchWithTimeout(`${this.gotrueAdminUrl}/users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -105,7 +106,7 @@ export class AuthService {
       });
     } catch (error) {
       // Evita dejar una cuenta autenticable sin perfil/rol en el sistema.
-      await fetch(`${this.gotrueAdminUrl}/users/${goTrueUser.id}`, {
+      await fetchWithTimeout(`${this.gotrueAdminUrl}/users/${goTrueUser.id}`, {
         method: "DELETE",
         headers: {
           apikey: this.serviceRoleKey,
@@ -122,6 +123,7 @@ export class AuthService {
   listarUsuarios() {
     return this.prisma.usuario.findMany({
       orderBy: { creado_en: "asc" },
+      take: 200,
     });
   }
 

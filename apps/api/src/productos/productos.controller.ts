@@ -107,11 +107,12 @@ export class ProductosController {
   ) {}
 
   @Get()
-  listar(
+  async listar(
     @Query("q") q?: string,
     @Query("categoriaId") categoriaId?: string,
     @Query("stockBajo") stockBajo?: string,
-    @Query("activo") activo?: string
+    @Query("activo") activo?: string,
+    @Req() request?: AuthenticatedRequest
   ) {
     const where: Record<string, unknown> = {};
 
@@ -129,21 +130,48 @@ export class ProductosController {
       where.activo = where.activo ?? true;
     }
 
-    return this.prisma.producto.findMany({
+    const productos = await this.prisma.producto.findMany({
       where,
       include: { categoria: true },
       orderBy: { nombre: "asc" },
+      take: 500,
     });
+    return this.sanitizarLista(productos, request?.user?.role);
   }
 
   @Get(":id")
-  async obtener(@Param("id", ParseUUIDPipe) id: string) {
+  async obtener(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request?: AuthenticatedRequest
+  ) {
     const producto = await this.prisma.producto.findUnique({
       where: { id },
       include: { categoria: true },
     });
     if (!producto) throw new NotFoundException("Producto no encontrado");
-    return producto;
+    return this.sanitizar(producto, request?.user?.role);
+  }
+
+  /**
+   * Mínimo privilegio: un cajero no necesita ver costo, stock objetivo ni
+   * datos internos de margen (AUDITORIA.md F2.3).
+   */
+  private sanitizar(
+    producto: Record<string, unknown>,
+    rol?: string
+  ): Record<string, unknown> {
+    if (rol === RolUsuario.administrador) return producto;
+    const limpio = { ...producto };
+    delete limpio.costo;
+    delete limpio.stock_objetivo;
+    return limpio;
+  }
+
+  private sanitizarLista(
+    productos: Array<Record<string, unknown>>,
+    rol?: string
+  ) {
+    return productos.map((p) => this.sanitizar(p, rol));
   }
 
   /**
@@ -151,13 +179,16 @@ export class ProductosController {
    * externa (Open Food Facts) para prellenar el registro.
    */
   @Get("buscar/:codigo")
-  async buscarPorCodigo(@Param("codigo") codigo: string) {
+  async buscarPorCodigo(
+    @Param("codigo") codigo: string,
+    @Req() request?: AuthenticatedRequest
+  ) {
     const producto = await this.prisma.producto.findUnique({
       where: { codigo_barras: codigo.trim() },
       include: { categoria: true },
     });
     if (producto) {
-      return { encontrado: true, producto };
+      return { encontrado: true, producto: this.sanitizar(producto, request?.user?.role) };
     }
     const datos = await this.lookup.buscar(codigo);
     return { encontrado: false, sugerencia: datos };

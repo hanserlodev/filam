@@ -30,6 +30,10 @@ describe("VentasController", () => {
     prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
       fn(prisma)
     );
+    prisma.configuracion.findFirst.mockResolvedValue({
+      id: 1,
+      metodos_pago: [MetodoPago.efectivo, MetodoPago.yape, MetodoPago.plin, MetodoPago.tarjeta, MetodoPago.transferencia],
+    } as never);
 
     const module = await Test.createTestingModule({
       controllers: [VentasController],
@@ -220,6 +224,59 @@ describe("VentasController", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it("lanza BadRequest si el método de pago no está habilitado", async () => {
+      prisma.configuracion.findFirst.mockResolvedValue({
+        id: 1,
+        metodos_pago: [MetodoPago.efectivo],
+      } as never);
+      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
+
+      await expect(
+        controller.crear(
+          {
+            pagos: [{ metodo_pago: MetodoPago.yape, monto: 57 }],
+            total_final: 57,
+            items: [{ producto_id: "prod-1", cantidad: 2 }],
+          } as never,
+          { user: { sub: "vendedor-1" } } as never
+        )
+      ).rejects.toThrow("no está habilitado");
+    });
+
+    it("lanza BadRequest si repite el mismo producto en la venta", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
+
+      await expect(
+        controller.crear(
+          {
+            pagos: [{ metodo_pago: MetodoPago.yape, monto: 114 }],
+            total_final: 114,
+            items: [
+              { producto_id: "prod-1", cantidad: 1 },
+              { producto_id: "prod-1", cantidad: 1 },
+            ],
+          } as never,
+          { user: { sub: "vendedor-1" } } as never
+        )
+      ).rejects.toThrow("mismo producto");
+    });
+
+    it("lanza BadRequest si una factura no tiene cliente", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
+
+      await expect(
+        controller.crear(
+          {
+            tipo_comprobante: TipoComprobante.factura,
+            pagos: [{ metodo_pago: MetodoPago.yape, monto: 57 }],
+            total_final: 57,
+            items: [{ producto_id: "prod-1", cantidad: 2 }],
+          } as never,
+          { user: { sub: "vendedor-1" } } as never
+        )
+      ).rejects.toThrow("cliente");
+    });
+
     it("devuelve la venta existente si la clave idempotente ya está registrada", async () => {
       const ventaOriginal = { id: "venta-original", idempotency_key: "clave-1" };
       prisma.venta.findUnique.mockResolvedValue(ventaOriginal as never);
@@ -276,6 +333,8 @@ describe("VentasController", () => {
         "2026-12-31",
         "00000000-0000-4000-8000-000000000002",
         undefined,
+        undefined,
+        undefined,
         { user: { sub: "admin-1" } } as never
       );
       expect(prisma.venta.findMany).toHaveBeenCalledWith(
@@ -296,7 +355,7 @@ describe("VentasController", () => {
       prisma.usuario.findUnique.mockResolvedValue({ rol: "cajero", activo: true });
       prisma.venta.findMany.mockResolvedValue([]);
 
-      await controller.listar(undefined, undefined, undefined, "00000000-0000-4000-8000-000000000003", undefined, {
+      await controller.listar(undefined, undefined, undefined, "00000000-0000-4000-8000-000000000003", undefined, undefined, undefined, {
         user: { sub: "cajero-1" },
       } as never);
 
@@ -310,12 +369,34 @@ describe("VentasController", () => {
     it("filtra solo ventas activas si se pide", async () => {
       prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
       prisma.venta.findMany.mockResolvedValue([]);
-      await controller.listar(undefined, undefined, undefined, undefined, "true", {
+      await controller.listar(undefined, undefined, undefined, undefined, "true", undefined, undefined, {
         user: { sub: "admin-1" },
       } as never);
       expect(prisma.venta.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ anulada: false }),
+        })
+      );
+    });
+
+    it("aplica paginación y devuelve metadatos con page/limit", async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findMany.mockResolvedValue([{ id: "v1" }]);
+      prisma.venta.count.mockResolvedValue(25);
+
+      const result = await controller.listar(
+        undefined, undefined, undefined, undefined, undefined,
+        "2", "10",
+        { user: { sub: "admin-1" } } as never
+      );
+
+      expect(prisma.venta.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 })
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          data: expect.any(Array),
+          pagination: expect.objectContaining({ page: 2, limit: 10, total: 25, totalPages: 3 }),
         })
       );
     });

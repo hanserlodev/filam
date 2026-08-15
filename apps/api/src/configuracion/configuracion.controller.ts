@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body } from "@nestjs/common";
+import { Controller, Get, Put, Body, BadRequestException } from "@nestjs/common";
 import { RolUsuario } from "@prisma/client";
 import {
   IsArray,
@@ -87,7 +87,16 @@ export class ConfiguracionController {
     if (dto.direccion !== undefined) data.direccion = dto.direccion;
     if (dto.telefono !== undefined) data.telefono = dto.telefono;
     if (dto.email !== undefined) data.email = dto.email;
-    if (dto.web !== undefined) data.web = dto.web;
+    if (dto.web !== undefined) {
+      // Validación de URL (F2.11): solo http/https, rechaza javascript:, data:, etc.
+      const web = dto.web.trim();
+      if (web && !/^https?:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(web)) {
+        throw new BadRequestException(
+          "La URL del sitio web debe ser válida (https://...)"
+        );
+      }
+      data.web = web || null;
+    }
     if (dto.instagram !== undefined) data.instagram = dto.instagram;
     if (dto.umbral_diferencia !== undefined)
       data.umbral_diferencia = dto.umbral_diferencia;

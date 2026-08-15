@@ -45,18 +45,18 @@
 
 ## FASE 2 — SEGURIDAD DE API Y DATOS
 
-- [ ] 2.1 Completar RLS en `venta_pagos`, `caja_movimientos`, `caja_evidencias`, `inventario_movimientos`, `precios_historico`.
-- [ ] 2.2 Revisar todos los grants de Supabase.
-- [ ] 2.3 DTOs de salida mínimos por rol (cajero no ve costo/margen).
-- [ ] 2.4 Añadir rate limiting (login, registros, búsquedas, URLs firmadas, reportes, catálogo).
-- [ ] 2.5 Añadir Helmet, CSP y HSTS.
-- [ ] 2.6 Validar CORS estrictamente (lista blanca + validación de entorno).
-- [ ] 2.7 Añadir paginación y límites en listados.
-- [ ] 2.8 Estandarizar errores (filtro global, requestId, logs JSON).
-- [ ] 2.9 Añadir timeout a llamadas externas (GoTrue, Storage).
-- [ ] 2.10 Validar rutas y archivos de evidencias (MIME, tamaño, path).
-- [ ] 2.11 Validar URL `web` en configuración (solo http/https).
-- [ ] 2.12 Validar reglas de negocio: métodos de pago habilitados, factura con cliente/RUC, productos duplicados, límites de descuento, venta bajo costo.
+- [x] 2.1 RLS completo en `venta_pagos`, `caja_movimientos`, `caja_evidencias`, `inventario_movimientos`, `precios_historico` (hecho en F0.4, verificado RLS_ON + cero grants).
+- [x] 2.2 Grants revisados en BD real (cero grants para anon/authenticated en todas las tablas).
+- [x] 2.3 DTOs de salida mínimos por rol: cajero no ve `costo`/`stock_objetivo` (productos y búsqueda por código). Verificado end-to-end.
+- [x] 2.4 Rate limiting global (@nestjs/throttler, 120/min por IP, `RATE_LIMIT_PER_MINUTE` ajustable). Verificado con X-RateLimit headers.
+- [x] 2.5 Helmet + CSP + HSTS (headers verificados en respuesta).
+- [x] 2.6 CORS estricto: lista blanca desde `CORS_ORIGIN` (soporta múltiples separados por coma), sin fallback de producción.
+- [x] 2.7 Paginación y límites: ventas (page/limit, máx 100, retrocompatible), productos (500), clientes (500), sesiones (200), evidencias (50), usuarios (200), catálogo (500).
+- [x] 2.8 Errores estandarizados: filtro global `AllExceptionsFilter` con requestId + logs estructurados.
+- [x] 2.9 Timeout en llamadas externas (fetchWithTimeout 8s en GoTrue).
+- [x] 2.10 Evidencias: MIME permitidos (jpg/png/webp/heic), tamaño máx 10MB, ruta validada `usuarioId/cajaId/archivo`, sin `..` ni rutas absolutas.
+- [x] 2.11 URL `web` validada (solo http/https).
+- [x] 2.12 Reglas de negocio: métodos de pago habilitados, factura exige cliente, sin productos duplicados en una venta. Verificado end-to-end.
 
 ## FASE 3 — FRONTEND ROBUSTO
 

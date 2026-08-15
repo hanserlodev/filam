@@ -66,7 +66,7 @@ describe("EvidenciasController", () => {
       await expect(
         controller.subirEvidencia(
           "caja-1",
-          { ruta_archivo: "caja-1/foto.jpg" } as never,
+          { ruta_archivo: "user-1/caja-1/foto.jpg" } as never,
           { user: { sub: "user-1" } } as never
         )
       ).rejects.toThrow("debe estar cerrada");
@@ -82,7 +82,7 @@ describe("EvidenciasController", () => {
       await expect(
         controller.subirEvidencia(
           "caja-ajena",
-          { ruta_archivo: "caja-ajena/foto.jpg" } as never,
+          { ruta_archivo: "user-1/caja-ajena/foto.jpg" } as never,
           { user: { sub: "user-1" } } as never
         )
       ).rejects.toThrow("No tienes acceso");
@@ -102,7 +102,7 @@ describe("EvidenciasController", () => {
 
       const result = await controller.subirEvidencia(
         "caja-1",
-        { ruta_archivo: "caja-1/foto.jpg", tipo_archivo: "image/jpeg" } as never,
+        { ruta_archivo: "user-1/caja-1/foto.jpg", tipo_archivo: "image/jpeg" } as never,
         { user: { sub: "user-1" } } as never
       );
 
@@ -110,7 +110,7 @@ describe("EvidenciasController", () => {
         expect.objectContaining({
           data: expect.objectContaining({
             caja_sesion_id: "caja-1",
-            ruta_archivo: "caja-1/foto.jpg",
+            ruta_archivo: "user-1/caja-1/foto.jpg",
             subida_por_id: "user-1",
             reemplaza_id: "evidencia-previa",
           }),

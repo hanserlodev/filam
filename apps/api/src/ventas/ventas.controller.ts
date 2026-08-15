@@ -118,6 +118,8 @@ export class VentasController {
     @Query("fechaFin") fechaFin?: string,
     @Query("vendedorId") vendedorId?: string,
     @Query("soloActivas") soloActivas?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
     @Req() request?: AuthenticatedRequest
   ) {
     const usuarioId = request?.user?.sub;
@@ -156,16 +158,38 @@ export class VentasController {
       };
     }
 
-    return this.prisma.venta.findMany({
-      where,
-      include: {
-        items: { include: { producto: { select: { nombre: true } } } },
-        pagos: true,
-        vendedor: { select: { nombre: true } },
-        cliente: { select: { nombre: true } },
+    // Paginación con límites (F2.7): máximo 100 por página.
+    // Retrocompatible: sin params de paginación devuelve el array plano.
+    const conPaginacion = page !== undefined || limit !== undefined;
+    const pagina = Math.max(Number(page) || 1, 1);
+    const limite = Math.min(Math.max(Number(limit) || 50, 1), 100);
+
+    const [ventas, total] = await Promise.all([
+      this.prisma.venta.findMany({
+        where,
+        include: {
+          items: { include: { producto: { select: { nombre: true } } } },
+          pagos: true,
+          vendedor: { select: { nombre: true } },
+          cliente: { select: { nombre: true } },
+        },
+        orderBy: { creado_en: "desc" },
+        ...(conPaginacion ? { skip: (pagina - 1) * limite, take: limite } : {}),
+      }),
+      conPaginacion ? this.prisma.venta.count({ where }) : Promise.resolve(0),
+    ]);
+
+    if (!conPaginacion) return ventas;
+
+    return {
+      data: ventas,
+      pagination: {
+        page: pagina,
+        limit: limite,
+        total,
+        totalPages: Math.ceil(total / limite),
       },
-      orderBy: { creado_en: "desc" },
-    });
+    };
   }
 
   @Get("detalle/:id")
@@ -226,6 +250,24 @@ export class VentasController {
       );
     }
 
+    // Reglas de negocio (F2.12):
+    // 1. No permitir el mismo producto dos veces en la venta.
+    const idsUnicos = new Set(dto.items.map((i) => i.producto_id));
+    if (idsUnicos.size !== dto.items.length) {
+      throw new BadRequestException(
+        "No puedes agregar el mismo producto dos veces a una venta"
+      );
+    }
+    // 2. La factura requiere cliente con documento fiscal.
+    if (
+      dto.tipo_comprobante === TipoComprobante.factura &&
+      !dto.cliente_id
+    ) {
+      throw new BadRequestException(
+        "Una factura requiere un cliente con datos fiscales"
+      );
+    }
+
     // Idempotencia: si ya se registró esta clave, devuelve la venta original.
     // La garantía real la da el índice único + manejo de P2002 dentro de la
     // transacción (F1.5); este check solo evita trabajo innecesario.
@@ -266,6 +308,17 @@ export class VentasController {
       // otra transacción está cerrando la caja (F1.3). Serializa con retiros
       // y cierres concurrentes de la misma caja.
       await bloquearCaja(tx, caja.id);
+
+      // Regla de negocio: solo métodos de pago habilitados en configuración (F2.12).
+      const config = await tx.configuracion.findFirst();
+      const metodosHabilitados = config?.metodos_pago ?? [];
+      for (const pago of dto.pagos) {
+        if (!metodosHabilitados.includes(pago.metodo_pago)) {
+          throw new BadRequestException(
+            `El método de pago "${pago.metodo_pago}" no está habilitado`
+          );
+        }
+      }
 
       // Pre-validar stock, precio de lista y costo snapshot.
       const detalles: Array<{
@@ -407,7 +460,7 @@ export class VentasController {
                 const sumaPrevia = detalles
                   .slice(0, idx)
                   .reduce(
-                    (sum, prev, prevIdx) => {
+                    (sum, prev) => {
                       const impLista = prev.precio_lista.mul(prev.cantidad);
                       const descPrev = subtotalVenta.isZero()
                         ? new Prisma.Decimal(0)

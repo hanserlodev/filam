@@ -96,6 +96,17 @@ describe("ProductosController", () => {
         })
       );
     });
+
+    it("oculta costo y stock_objetivo a un cajero", async () => {
+      prisma.producto.findMany.mockResolvedValue([productoBase]);
+      const result = await controller.listar(undefined, undefined, undefined, undefined, {
+        user: { sub: "cajero-1", role: "cajero" },
+      } as never);
+      expect(result[0].costo).toBeUndefined();
+      expect(result[0].stock_objetivo).toBeUndefined();
+      expect(result[0].precio).toBe(28.5);
+      expect(result[0].nombre).toBe("Martillo");
+    });
   });
 
   describe("obtener", () => {

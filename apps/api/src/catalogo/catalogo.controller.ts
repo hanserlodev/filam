@@ -18,6 +18,7 @@ export class CatalogoController {
       this.prisma.producto.findMany({
         where: { activo: true },
         orderBy: { nombre: "asc" },
+        take: 500,
         select: {
           id: true,
           nombre: true,

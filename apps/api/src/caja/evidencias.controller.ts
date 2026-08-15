@@ -24,6 +24,9 @@ import { PrismaService } from "../prisma/prisma.service";
 
 const BUCKET = "evidencias-caja";
 
+const MIME_PERMITIDOS = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+const TAMANO_MAXIMO_BYTES = 10 * 1024 * 1024; // 10 MB
+
 class SubirEvidenciaDto {
   @IsString()
   @MaxLength(300)
@@ -68,6 +71,32 @@ export class EvidenciasController {
       throw new BadRequestException("La ruta del archivo es requerida");
     }
 
+    // Validación de archivo (F2.10): solo imágenes, tamaño máximo y ruta segura.
+    if (dto.tipo_archivo && !MIME_PERMITIDOS.includes(dto.tipo_archivo)) {
+      throw new BadRequestException(
+        `Tipo de archivo no permitido. Usa: ${MIME_PERMITIDOS.join(", ")}`
+      );
+    }
+    if (
+      dto.tamano_bytes != null &&
+      dto.tamano_bytes > TAMANO_MAXIMO_BYTES
+    ) {
+      throw new BadRequestException(
+        `El archivo excede el tamaño máximo de ${TAMANO_MAXIMO_BYTES / (1024 * 1024)} MB`
+      );
+    }
+    const ruta = dto.ruta_archivo.replace(/\\/g, "/");
+    if (ruta.includes("..") || ruta.startsWith("/") || !ruta.includes("/")) {
+      throw new BadRequestException("Ruta de archivo no válida");
+    }
+    // La ruta debe respetar el patrón usuarioId/cajaId/nombre (RLS del bucket).
+    const [primerSegmento, segundoSegmento] = ruta.split("/");
+    if (primerSegmento !== usuarioId || segundoSegmento !== id) {
+      throw new BadRequestException(
+        "La ruta debe seguir el patrón usuarioId/cajaId/archivo"
+      );
+    }
+
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: usuarioId },
       select: { rol: true, activo: true },
@@ -95,7 +124,7 @@ export class EvidenciasController {
     return this.prisma.cajaEvidencia.create({
       data: {
         caja_sesion_id: id,
-        ruta_archivo: dto.ruta_archivo,
+        ruta_archivo: ruta,
         tipo_archivo: dto.tipo_archivo,
         tamano_bytes: dto.tamano_bytes,
         subida_por_id: usuarioId,
@@ -123,6 +152,7 @@ export class EvidenciasController {
     return this.prisma.cajaEvidencia.findMany({
       where: { caja_sesion_id: id },
       orderBy: { creado_en: "desc" },
+      take: 50,
     });
   }
 

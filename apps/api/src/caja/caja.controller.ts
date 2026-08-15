@@ -83,6 +83,7 @@ export class CajaController {
         evidencias: { orderBy: { creado_en: "desc" } },
       },
       orderBy: { abierta_en: "desc" },
+      take: 200,
     });
   }
 
@@ -97,6 +98,7 @@ export class CajaController {
         evidencias: { orderBy: { creado_en: "desc" } },
       },
       orderBy: { abierta_en: "desc" },
+      take: 200,
     });
   }
 
