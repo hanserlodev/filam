@@ -670,9 +670,18 @@ export default function PosPage() {
       {openCajaModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              {caja ? "Tu caja" : "Abrir caja"}
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                {caja ? "Tu caja" : "Abrir caja"}
+              </h3>
+              <button
+                onClick={() => setOpenCajaModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition"
+                aria-label="Cerrar"
+              >
+                <X size={20} />
+              </button>
+            </div>
             {caja ? (
               <div className="space-y-3">
                 <p className="text-gray-600">
@@ -780,6 +789,12 @@ export default function PosPage() {
                 <button onClick={abrirCaja} className="btn-primary w-full">
                   Abrir caja
                 </button>
+                <button
+                  onClick={() => setOpenCajaModal(false)}
+                  className="btn-outline w-full"
+                >
+                  Cancelar
+                </button>
               </div>
             )}
           </div>
@@ -789,9 +804,18 @@ export default function PosPage() {
       {showMovimiento && caja && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Retiro / Ingreso de caja
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                Retiro / Ingreso de caja
+              </h3>
+              <button
+                onClick={() => setShowMovimiento(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition"
+                aria-label="Cerrar"
+              >
+                <X size={20} />
+              </button>
+            </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 <button
