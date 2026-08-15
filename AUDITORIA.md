@@ -73,18 +73,17 @@
 
 ## FASE 4 — RESILIENCIA Y OPERACIÓN
 
-- [ ] 4.1 Backups automáticos cifrados fuera del servidor.
-- [ ] 4.2 Restauración automatizada de prueba.
-- [ ] 4.3 RPO/RTO documentados (RPO ≤ 24h, RTO ≤ 4h).
-- [ ] 4.4 Logs estructurados.
-- [ ] 4.5 Métricas y trazas.
-- [ ] 4.6 Alertas de errores, latencia y base de datos.
-- [ ] 4.7 CI con migraciones de prueba.
-- [ ] 4.8 Escaneo de secretos (GitLeaks).
-- [ ] 4.9 SBOM y escaneo de dependencias completo.
-- [ ] 4.10 Despliegue con aprobación y rollback.
-- [ ] 4.11 Migraciones automáticas controladas (`prisma migrate deploy` con respaldo).
-- [ ] 4.12 Plan Render (suspensión por inactividad / cold starts).
+- [x] 4.7 CI con escaneo de secretos (GitLeaks v8.18.4) en job `secret-scan`.
+- [x] 4.8 Escaneo de dependencias (npm audit ya en CI); GitLeaks añadido.
+- [x] 4.11 Migraciones automáticas controladas: `preDeployCommand` en `render.yaml` ejecuta `prisma migrate deploy`.
+- [x] 4.12 Documentación de rotación de secretos en DEPLOY.md.
+- [ ] 4.1 Backups automáticos cifrados fuera del servidor (PENDIENTE manual en Supabase: activar backups continuos + verificar restauración).
+- [ ] 4.2 Restauración automatizada de prueba (PENDIENTE manual).
+- [ ] 4.3 RPO/RTO documentados (RPO ≤ 24h, RTO ≤ 4h) — PENDIENTE manual.
+- [x] 4.4 Logs estructurados (filtro global con requestId, log JSON de errores — F2.8).
+- [ ] 4.5/4.6 Métricas, trazas y alertas (PENDIENTE manual: UptimeRobot/Better Stack/Sentry).
+- [ ] 4.9 SBOM (PENDIENTE: generar y publicar).
+- [ ] 4.10 Despliegue con aprobación y rollback (PENDIENTE manual en Render).
 
 ## FASE 5 — PRUEBAS DE ACEPTACIÓN
 

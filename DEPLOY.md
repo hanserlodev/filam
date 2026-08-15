@@ -19,6 +19,7 @@ Producción futura: self-hosted (Caddy + Docker Compose).
    - **Name**: `filam-api`
    - **Runtime**: Node
    - **Build Command**: `npm ci --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build --workspace @filam/api`
+   - **Pre-Deploy Command**: `npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma`
    - **Start Command**: `node apps/api/dist/src/main.js`
    - **Health Check Path**: `/api/health`
    - **Plan**: Free
@@ -61,6 +62,15 @@ CORS_ORIGIN=https://filam-pos.vercel.app
 - Migraciones aplicadas: `init`, `configuracion`, `map_table_names`
 - Seed ejecutado: 12 productos, 6 categorías, admin + cajero, caja abierta
 - Usuarios creados en GoTrue (auth.users) con **contraseñas fuertes** (rotadas, nunca en texto plano en el repo). Si aún existen los usuarios demo con las contraseñas por defecto, **rotarlas de inmediato**.
+
+## 5. Seguridad y rotación de secretos
+
+Antes de operar en producción:
+- Rotar `SERVICE_ROLE_KEY`, contraseña de BD y `GOTRUE_JWT_SECRET` desde el dashboard de Supabase.
+- Actualizar las variables en Render y `.env` tras la rotación.
+- **Nunca** guardar secretos en el repo, documentación, logs o terminales compartidas.
+- Variable opcional `RATE_LIMIT_PER_MINUTE` (por defecto 120 peticiones/min por IP).
+- CI ejecuta GitLeaks (escaneo de secretos) en cada push/PR.
 
 ## Demo (14 ago)
 
