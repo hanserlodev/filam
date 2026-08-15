@@ -15,6 +15,7 @@ import {
   HardHat,
   Printer,
   Check,
+  LayoutDashboard,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAccessToken } from "@/lib/use-access-token";
@@ -252,6 +253,13 @@ export default function PosPage() {
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition bg-white/10 hover:bg-white/20"
+          >
+            <LayoutDashboard size={18} />
+            <span className="hidden sm:inline">Dashboard</span>
+          </button>
           <button
             onClick={() => setOpenCajaModal(true)}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition ${
