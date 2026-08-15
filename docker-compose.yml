@@ -9,7 +9,8 @@ services:
       POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Set LOCAL_POSTGRES_PASSWORD}
       POSTGRES_DB: filam
     ports:
-      - "5432:5432"
+      # Solo bind local: nunca exponer PostgreSQL a interfaces externas.
+      - "127.0.0.1:5432:5432"
     volumes:
       - filam_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +31,7 @@ services:
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${LOCAL_POSTGRES_PASSWORD:?Set LOCAL_POSTGRES_PASSWORD}@postgres:5432/filam
       GOTRUE_SITE_URL: http://localhost:3000
       GOTRUE_URI_ALLOW_LIST: http://localhost:3000
-      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_DISABLE_SIGNUP: "true"
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
@@ -46,7 +47,8 @@ services:
       GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
       GOTRUE_LOG_LEVEL: info
     ports:
-      - "9999:9999"
+      # Solo bind local: GoTrue solo es accesible desde el host.
+      - "127.0.0.1:9999:9999"
     depends_on:
       postgres:
         condition: service_healthy

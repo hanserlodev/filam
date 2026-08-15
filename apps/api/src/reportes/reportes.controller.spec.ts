@@ -58,9 +58,11 @@ describe("ReportesController", () => {
 
   describe("ventasPorDia", () => {
     it("devuelve ventas por día en el rango", async () => {
+      const hoyInicio = new Date();
+      hoyInicio.setHours(0, 0, 0, 0);
       prisma.venta.findMany.mockResolvedValue([
-        { total: 100, creado_en: new Date("2026-08-14T10:00:00Z") },
-        { total: 50, creado_en: new Date("2026-08-14T15:00:00Z") },
+        { total: 100, creado_en: new Date(hoyInicio.getTime()) },
+        { total: 50, creado_en: new Date(hoyInicio.getTime() + 5 * 3600 * 1000) },
       ]);
 
       const result = await controller.ventasPorDia("7");

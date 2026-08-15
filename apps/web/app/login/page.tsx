@@ -86,12 +86,6 @@ export default function LoginPage() {
               {loading ? "Ingresando..." : "Ingresar"}
             </button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-            <p className="text-xs text-gray-400">
-              Demo: cajero@filam.pe / cajero123
-            </p>
-          </div>
         </div>
       </div>
     </div>

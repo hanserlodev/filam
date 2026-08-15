@@ -60,14 +60,12 @@ CORS_ORIGIN=https://filam-pos.vercel.app
 
 - Migraciones aplicadas: `init`, `configuracion`, `map_table_names`
 - Seed ejecutado: 12 productos, 6 categorías, admin + cajero, caja abierta
-- Usuarios creados en GoTrue (auth.users):
-  - admin@filam.pe / admin123 (administrador)
-  - cajero@filam.pe / cajero123 (cajero)
+- Usuarios creados en GoTrue (auth.users) con **contraseñas fuertes** (rotadas, nunca en texto plano en el repo). Si aún existen los usuarios demo con las contraseñas por defecto, **rotarlas de inmediato**.
 
 ## Demo (14 ago)
 
 Flujo para la demo:
-1. Login con cajero@filam.pe / cajero123
+1. Login con credenciales de demo (solo entorno de desarrollo local)
 2. Abrir caja (S/200) si no está abierta
 3. Buscar producto (escáner o búsqueda)
 4. Agregar al carrito → Cobrar (efectivo/tarjeta/yape/plin)
