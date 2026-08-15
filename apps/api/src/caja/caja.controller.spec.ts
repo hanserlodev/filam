@@ -139,7 +139,14 @@ describe("CajaController", () => {
         { user: { sub: "user-1" } } as never
       );
 
-      expect(prisma.$queryRaw).toHaveBeenCalled();
+      // El advisory lock serializa toda la transacción (F1.2).
+      expect(prisma.$queryRaw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          strings: expect.arrayContaining([
+            expect.stringContaining("pg_advisory_xact_lock"),
+          ]),
+        })
+      );
     });
 
     it("lanza BadRequest si no hay caja abierta", async () => {

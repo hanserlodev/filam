@@ -3,20 +3,22 @@ import { Prisma } from "@prisma/client";
 type Tx = Prisma.TransactionClient;
 
 /**
- * Bloquea la fila de una sesión de caja con `SELECT ... FOR UPDATE`.
+ * Serializa operaciones concurrentes sobre una misma caja con un advisory
+ * lock de PostgreSQL (pg_advisory_xact_lock), liberado al terminar la
+ * transacción.
  *
- * Serializa operaciones concurrentes sobre la misma caja (ventas, retiros,
- * cierre) para evitar: retiros que sobregiran el efectivo, ventas que se
- * registran durante un cierre, o doble cierre (AUDITORIA.md F1.2 / F1.3).
+ * A diferencia de SELECT ... FOR UPDATE sobre la fila, el advisory lock
+ * cubre TODA la transacción (lecturas de movimientos/ventas incluidas), lo
+ * que impide que dos retiros concurrentes lean el mismo efectivo disponible
+ * y sobregiren la caja (AUDITORIA.md F1.2 / F1.3).
  */
 export async function bloquearCaja(
   tx: Tx,
   cajaId: string
 ): Promise<void> {
-  const filas = await tx.$queryRaw<
-    Array<{ id: string; estado: string }>
-  >(Prisma.sql`SELECT id, estado FROM caja_sesiones WHERE id = ${cajaId} FOR UPDATE`);
-  if (filas.length === 0) {
-    throw new Error("Sesión de caja no encontrada");
-  }
+  // hashtext genera el mismo valor para el mismo id en todas las conexiones.
+  // El cast ::text evita que Prisma falle al deserializar columnas 'void'.
+  await tx.$queryRaw<unknown[]>(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${cajaId}))::text`
+  );
 }
