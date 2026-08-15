@@ -198,6 +198,8 @@ model Venta {
   venta_bajo_costo  Boolean          @default(false)
   total             Decimal          @db.Decimal(10, 2)
   idempotency_key   String?          @unique @db.VarChar(100)
+  serie             String?          @db.VarChar(10)
+  numero_correlativo Int?            @map("numero_correlativo")
   comprobante_ref   String?
   formato_impresion FormatoImpresion @default(termica)
   anulada           Boolean          @default(false)
@@ -212,6 +214,7 @@ model Venta {
 
   @@index([caja_sesion_id])
   @@index([creado_en])
+  @@index([serie, numero_correlativo])
   @@map("ventas")
 }
 

@@ -325,13 +325,37 @@ export class VentasController {
 
       const metodoPrincipal = dto.pagos[0].metodo_pago;
 
+      // Generar correlativo de boleta/factura (serie + número secuencial).
+      const tipoComprobante =
+        dto.tipo_comprobante ?? TipoComprobante.nota_venta;
+      let serie: string | null = null;
+      let numeroCorrelativo: number | null = null;
+      let comprobanteRef: string | null = null;
+
+      if (
+        tipoComprobante === TipoComprobante.boleta ||
+        tipoComprobante === TipoComprobante.factura
+      ) {
+        serie = tipoComprobante === TipoComprobante.factura ? "F001" : "B001";
+        const ultima = await tx.venta.findFirst({
+          where: { serie },
+          orderBy: { numero_correlativo: "desc" },
+          select: { numero_correlativo: true },
+        });
+        numeroCorrelativo = (ultima?.numero_correlativo ?? 0) + 1;
+        comprobanteRef = `${serie}-${String(numeroCorrelativo).padStart(8, "0")}`;
+      }
+
       const venta = await tx.venta.create({
         data: {
           caja_sesion_id: caja.id,
           vendedor_id: vendedorId,
           cliente_id: dto.cliente_id,
           metodo_pago: metodoPrincipal,
-          tipo_comprobante: dto.tipo_comprobante ?? TipoComprobante.nota_venta,
+          tipo_comprobante: tipoComprobante,
+          serie,
+          numero_correlativo: numeroCorrelativo,
+          comprobante_ref: comprobanteRef,
           formato_impresion: dto.formato_impresion ?? FormatoImpresion.termica,
           subtotal: subtotalVenta,
           descuento_monto: descuentoMonto,

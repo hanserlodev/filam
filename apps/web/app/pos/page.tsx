@@ -25,6 +25,7 @@ import { api } from "@/lib/api";
 import { useAccessToken } from "@/lib/use-access-token";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import TicketBoleta from "@/components/TicketBoleta";
 
 interface Producto {
   id: string;
@@ -68,14 +69,26 @@ interface VentaItem {
 interface VentaCreada {
   id: string;
   total: number;
+  subtotal: number;
+  descuento_monto: number;
+  serie: string | null;
+  numero_correlativo: number | null;
+  comprobante_ref: string | null;
   items: Array<{
     producto: { nombre: string; unidad_medida: string };
     cantidad: number;
     precio_unitario: number;
+    precio_lista: number;
   }>;
   metodo_pago: string;
   tipo_comprobante: string;
   creado_en: string;
+}
+
+interface ConfigNegocio {
+  nombre_negocio: string;
+  ruc: string | null;
+  direccion: string | null;
 }
 
 type MetodoPago = "efectivo" | "tarjeta" | "yape" | "plin" | "transferencia";
@@ -121,6 +134,11 @@ export default function PosPage() {
   const [movMotivo, setMovMotivo] = useState("");
   const [fotoPendiente, setFotoPendiente] = useState(false);
   const [cajaFotoId, setCajaFotoId] = useState<string | null>(null);
+  const [config, setConfig] = useState<ConfigNegocio>({
+    nombre_negocio: "FILAM",
+    ruc: null,
+    direccion: null,
+  });
   const searchRef = useRef<HTMLInputElement>(null);
 
   async function cargarCaja() {
@@ -147,10 +165,16 @@ export default function PosPage() {
       api.get<Producto[]>("/productos", token),
       api.get<CajaSesion | null>("/caja/abierta", token),
       api.get<CajaSesion[]>("/caja/mis-sesiones", token),
+      api.get<ConfigNegocio>("/configuracion", token),
     ])
-      .then(([prods, cajaRes, sesiones]) => {
+      .then(([prods, cajaRes, sesiones, cfg]) => {
         setProductos(prods.filter((p) => p.activo !== false));
         setCaja(cajaRes);
+        setConfig({
+          nombre_negocio: cfg.nombre_negocio,
+          ruc: cfg.ruc,
+          direccion: cfg.direccion,
+        });
         const pendiente = sesiones.find(
           (sesion) => sesion.estado === "cerrada" && !(sesion.evidencias ?? []).length
         );
@@ -288,6 +312,7 @@ export default function PosPage() {
           pagos: pagos
             .filter((p) => Number(p.monto) > 0)
             .map((p) => ({ metodo_pago: p.metodo, monto: Number(p.monto) })),
+          tipo_comprobante: "boleta",
           total_final: totalFinalNum,
           motivo_descuento: descuento > 0.001 ? motivoDescuento : undefined,
           idempotency_key: crypto.randomUUID(),
@@ -1023,93 +1048,93 @@ export default function PosPage() {
       {showExito && ventaCreada && (
         <>
           <div id="receipt-print" className="receipt-print" aria-hidden="true">
-            <div style={{ textAlign: "center", fontWeight: 700, fontSize: 15 }}>
-              FILAM
-            </div>
-            <div style={{ textAlign: "center" }}>Tuberías PVC & Ferretería</div>
-            <div style={{ textAlign: "center", margin: "8px 0" }}>
-              NOTA DE VENTA
-            </div>
-            <div>Venta: #{ventaCreada.id.slice(0, 8).toUpperCase()}</div>
-            <div>
-              {ventaCreada.creado_en
-                ? new Date(ventaCreada.creado_en).toLocaleString("es-PE")
-                : "Fecha no disponible"}
-            </div>
-            <hr style={{ margin: "8px 0", borderColor: "#94a3b8" }} />
-            {ventaCreada.items.map((item, i) => (
-              <div key={i} style={{ marginBottom: 5 }}>
-                <div>{item.producto.nombre}</div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>
-                    {item.cantidad} x {formatCurrency(item.precio_unitario)}
-                  </span>
-                  <span>
-                    {formatCurrency(item.precio_unitario * item.cantidad)}
-                  </span>
-                </div>
-              </div>
-            ))}
-            <hr style={{ margin: "8px 0", borderColor: "#94a3b8" }} />
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontWeight: 700,
-                fontSize: 14,
+            <TicketBoleta
+              modo="termica"
+              data={{
+                negocio: config,
+                comprobante:
+                  ventaCreada.tipo_comprobante === "boleta"
+                    ? "BOLETA DE VENTA"
+                    : "NOTA DE VENTA",
+                numero: ventaCreada.comprobante_ref || `#${ventaCreada.id.slice(0, 8).toUpperCase()}`,
+                fecha: ventaCreada.creado_en
+                  ? new Date(ventaCreada.creado_en).toLocaleString("es-PE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })
+                  : "",
+                items: ventaCreada.items.map((item) => ({
+                  nombre: item.producto.nombre,
+                  cantidad: Number(item.cantidad),
+                  precio_unitario: Number(item.precio_unitario),
+                })),
+                subtotal: Number(ventaCreada.total),
+                total: Number(ventaCreada.total),
               }}
-            >
-              <span>TOTAL</span>
-              <span>{formatCurrency(ventaCreada.total)}</span>
-            </div>
-            <div style={{ textAlign: "center", marginTop: 12 }}>
-              Gracias por su compra
-            </div>
+            />
           </div>
 
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-              <div className="flex flex-col items-center text-center mb-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3">
-                  <Check size={32} className="text-green-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Venta registrada
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl p-4 shadow-xl w-full max-w-4xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">
+                  Boleta emitida
                 </h3>
-                <p className="text-gray-500">
-                  Venta #{ventaCreada.id.slice(0, 8).toUpperCase()}
-                </p>
+                <button
+                  onClick={() => setShowExito(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                  aria-label="Cerrar"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                {ventaCreada.items.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex justify-between py-1 text-sm border-b border-gray-100 last:border-0"
-                  >
-                    <span className="text-gray-700">
-                      {item.cantidad} × {item.producto.nombre}
-                    </span>
-                    <span className="font-semibold">
-                      {formatCurrency(item.precio_unitario * item.cantidad)}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex justify-between pt-2 mt-2 border-t border-gray-200">
-                  <span className="font-bold">TOTAL</span>
-                  <span className="font-bold text-lg">
-                    {formatCurrency(ventaCreada.total)}
-                  </span>
-                </div>
+              <div className="overflow-x-auto border border-gray-200 rounded-xl p-2">
+                <TicketBoleta
+                  modo="a4"
+                  data={{
+                    negocio: config,
+                    comprobante:
+                      ventaCreada.tipo_comprobante === "boleta"
+                        ? "BOLETA DE VENTA"
+                        : "NOTA DE VENTA",
+                    numero:
+                      ventaCreada.comprobante_ref ||
+                      `#${ventaCreada.id.slice(0, 8).toUpperCase()}`,
+                    fecha: ventaCreada.creado_en
+                      ? new Date(ventaCreada.creado_en).toLocaleString("es-PE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: false,
+                        })
+                      : "",
+                    items: ventaCreada.items.map((item) => ({
+                      nombre: item.producto.nombre,
+                      cantidad: Number(item.cantidad),
+                      precio_unitario: Number(item.precio_unitario),
+                    })),
+                    subtotal: Number(ventaCreada.total),
+                    total: Number(ventaCreada.total),
+                  }}
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mt-4">
                 <button
                   onClick={() => window.print()}
                   className="btn-outline flex items-center justify-center space-x-2"
                 >
                   <Printer size={18} />
-                  <span>Imprimir</span>
+                  <span>Imprimir (térmica)</span>
                 </button>
                 <button
                   onClick={() => setShowExito(false)}
