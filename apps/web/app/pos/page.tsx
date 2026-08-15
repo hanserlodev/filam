@@ -83,6 +83,8 @@ export default function PosPage() {
   const [error, setError] = useState("");
   const [openCajaModal, setOpenCajaModal] = useState(false);
   const [montoApertura, setMontoApertura] = useState("200");
+  const [montoCierre, setMontoCierre] = useState("");
+  const [cerrandoCaja, setCerrandoCaja] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [ventaCreada, setVentaCreada] = useState<VentaCreada | null>(null);
   const [showExito, setShowExito] = useState(false);
@@ -169,6 +171,22 @@ export default function PosPage() {
       setOpenCajaModal(false);
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  async function cerrarCaja() {
+    if (!caja) return;
+    setError("");
+    setCerrandoCaja(true);
+    try {
+      await api.post(`/caja/cerrar/${caja.id}`, { monto_cierre: Number(montoCierre) || 0 }, token);
+      setCaja(null);
+      setOpenCajaModal(false);
+      setMontoCierre("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCerrandoCaja(false);
     }
   }
 
@@ -485,11 +503,32 @@ export default function PosPage() {
                     </span>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monto final en caja (S/.)
+                  </label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={montoCierre}
+                    onChange={(e) => setMontoCierre(e.target.value)}
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </div>
+                <button
+                  onClick={cerrarCaja}
+                  disabled={cerrandoCaja}
+                  className="btn-secondary w-full"
+                >
+                  {cerrandoCaja ? "Cerrando..." : "Cerrar caja"}
+                </button>
                 <button
                   onClick={() => setOpenCajaModal(false)}
                   className="btn-outline w-full"
                 >
-                  Cerrar
+                  Cancelar
                 </button>
               </div>
             ) : (
