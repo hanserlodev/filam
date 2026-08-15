@@ -35,13 +35,13 @@
 
 ## FASE 1 — INTEGRIDAD FINANCIERA E INVENTARIO
 
-- [ ] 1.1 Corregir concurrencia de anulaciones de ventas (doble devolución de stock).
-- [ ] 1.2 Corregir retiros de caja concurrentes.
-- [ ] 1.3 Bloquear venta/cierre de caja concurrentes.
-- [ ] 1.4 Implementar correlativos PostgreSQL seguros (secuencia o `FOR UPDATE` + reintento).
-- [ ] 1.5 Rediseñar idempotencia (hash de payload + usuario + caja + respuesta almacenada).
-- [ ] 1.6 Añadir movimientos de devolución de dinero al anular.
-- [ ] 1.7 Garantizar auditoría de toda operación financiera.
+- [x] 1.1 Concurrencia de anulaciones: claim atómico (`updateMany` condicional) en ventas y compras + helper de inventario con `updateMany` condicional. Verificado end-to-end (doble anulación rechazada, 1 solo movimiento).
+- [x] 1.2 Retiros de caja concurrentes: bloqueo de fila con `SELECT ... FOR UPDATE` (`caja-lock.helper.ts`) antes de calcular efectivo.
+- [x] 1.3 Venta/cierre de caja concurrentes: venta, retiro y cierre bloquean la fila de `caja_sesiones`.
+- [x] 1.4 Correlativos con secuencias PostgreSQL (`correlativo_b001`/`correlativo_f001`, `nextval()` atómico). Migración `20260815100000_secuencias_correlativo`. Verificado B001-00000007/8.
+- [x] 1.5 Idempotencia rediseñada: hash del payload (`idempotency_hash`), check dentro de transacción, manejo de P2002 devolviendo la venta original. Migración `20260815110000_idempotencia_hash`.
+- [ ] 1.6 Añadir movimientos de devolución de dinero al anular (pendiente: definir regla de negocio — devolución efectivo/digital).
+- [ ] 1.7 Garantizar auditoría de toda operación financiera (parcial; pendiente formalizar).
 
 ## FASE 2 — SEGURIDAD DE API Y DATOS
 

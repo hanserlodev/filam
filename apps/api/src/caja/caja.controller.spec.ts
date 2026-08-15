@@ -125,6 +125,23 @@ describe("CajaController", () => {
       ).resolves.toBeDefined();
     });
 
+    it("bloquea la fila de caja antes de calcular el efectivo (concurrencia)", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue({
+        id: "caja-1",
+        monto_apertura: 100,
+      });
+      prisma.venta.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.findMany.mockResolvedValue([]);
+      prisma.cajaMovimiento.create.mockResolvedValue({ id: "mov-1" });
+
+      await controller.registrarMovimiento(
+        { tipo: "retiro", monto: 50, motivo: "gasolina" } as never,
+        { user: { sub: "user-1" } } as never
+      );
+
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
+
     it("lanza BadRequest si no hay caja abierta", async () => {
       prisma.cajaSesion.findFirst.mockResolvedValue(null);
       await expect(

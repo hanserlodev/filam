@@ -66,6 +66,11 @@ export const TipoDocumentoCompra = {
 
 export const Prisma = {
   InputJsonValue: Symbol("InputJsonValue"),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    strings,
+    values,
+  }),
+  raw: (sql: string) => sql,
   Decimal: class Decimal {
     value: number;
 
@@ -103,6 +108,14 @@ export const Prisma = {
 
     gt(value: { value: number } | number | string) {
       return this.value > Number(value);
+    }
+
+    gte(value: { value: number } | number | string) {
+      return this.value >= Number(value);
+    }
+
+    lte(value: { value: number } | number | string) {
+      return this.value <= Number(value);
     }
 
     eq(value: { value: number } | number | string) {

@@ -30,26 +30,35 @@ export async function registrarMovimientoInventario({
 }: RegistrarMovimientoArgs) {
   const variacion = toDecimal(cantidad);
 
-  const producto = await tx.producto.findUnique({
-    where: { id: productoId },
-    select: { stock: true },
+  // Update atómico condicional: solo decrementa si hay stock suficiente.
+  // Evita la carrera de lecturas simultáneas (AUDITORIA.md F1.1).
+  const esEntrada = variacion.gte(0);
+  const resultado = await tx.producto.updateMany({
+    where: {
+      id: productoId,
+      ...(esEntrada ? {} : { stock: { gte: variacion.negated() } }),
+    },
+    data: { stock: { increment: variacion } },
   });
-  if (!producto) {
-    throw new Error("Producto no encontrado");
-  }
-
-  const stockAnterior = toDecimal(producto.stock);
-  const stockPosterior = stockAnterior.plus(variacion);
-  if (stockPosterior.lt(0)) {
+  if (resultado.count === 0) {
+    const producto = await tx.producto.findUnique({
+      where: { id: productoId },
+      select: { stock: true },
+    });
+    if (!producto) {
+      throw new Error("Producto no encontrado");
+    }
     throw new Error(
-      `Stock insuficiente: disponible ${stockAnterior}, se intentó variar ${variacion}`
+      `Stock insuficiente: disponible ${producto.stock}, se intentó variar ${cantidad}`
     );
   }
 
-  await tx.producto.update({
+  const productoPost = await tx.producto.findUnique({
     where: { id: productoId },
-    data: { stock: stockPosterior },
+    select: { stock: true },
   });
+  const stockPosterior = toDecimal(productoPost?.stock ?? 0);
+  const stockAnterior = stockPosterior.minus(variacion);
 
   return tx.inventarioMovimiento.create({
     data: {

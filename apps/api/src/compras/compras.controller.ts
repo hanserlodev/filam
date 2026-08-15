@@ -324,6 +324,20 @@ export class ComprasController {
         throw new BadRequestException("Esta compra ya fue anulada o devuelta");
       }
 
+      // Claim atómico: solo una transacción concurrente puede anular la compra.
+      const claim = await tx.compra.updateMany({
+        where: { id, estado: EstadoCompra.registrada },
+        data: {
+          estado: EstadoCompra.anulada,
+          anulada_en: new Date(),
+          anulada_por_id: usuarioId,
+          motivo_anulacion: dto.motivo,
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException("Esta compra ya fue anulada o devuelta");
+      }
+
       for (const item of compra.items) {
         await registrarMovimientoInventario({
           tx,
@@ -336,14 +350,8 @@ export class ComprasController {
         });
       }
 
-      return tx.compra.update({
+      return tx.compra.findUnique({
         where: { id },
-        data: {
-          estado: EstadoCompra.anulada,
-          anulada_en: new Date(),
-          anulada_por_id: usuarioId,
-          motivo_anulacion: dto.motivo,
-        },
         include: { items: true },
       });
       },

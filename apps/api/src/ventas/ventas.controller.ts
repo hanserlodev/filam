@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   Controller,
   Get,
@@ -36,6 +37,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
 import { toDecimal, toMoney } from "../common/decimal";
 import { registrarMovimientoInventario } from "../inventario/inventario-movimiento.helper";
+import { bloquearCaja } from "../caja/caja-lock.helper";
 
 class VentaItemDto {
   @IsUUID()
@@ -225,12 +227,29 @@ export class VentasController {
     }
 
     // Idempotencia: si ya se registró esta clave, devuelve la venta original.
+    // La garantía real la da el índice único + manejo de P2002 dentro de la
+    // transacción (F1.5); este check solo evita trabajo innecesario.
     if (dto.idempotency_key) {
       const existente = await this.prisma.venta.findUnique({
         where: { idempotency_key: dto.idempotency_key },
       });
       if (existente) return existente;
     }
+
+    // Hash canónico del payload para detectar reutilización con otro contenido.
+    const idempotencyHash = dto.idempotency_key
+      ? createHash("sha256")
+          .update(
+            JSON.stringify({
+              items: dto.items.map((i) => [i.producto_id, i.cantidad]),
+              pagos: dto.pagos.map((p) => [p.metodo_pago, p.monto]),
+              total_final: dto.total_final,
+              tipo_comprobante: dto.tipo_comprobante,
+              cliente_id: dto.cliente_id,
+            })
+          )
+          .digest("hex")
+      : null;
 
     return this.prisma.$transaction(
       async (tx) => {
@@ -242,6 +261,11 @@ export class VentasController {
           "No tienes una caja abierta. Abre tu turno antes de vender."
         );
       }
+
+      // Bloquea la fila de caja: impide que una venta se registre mientras
+      // otra transacción está cerrando la caja (F1.3). Serializa con retiros
+      // y cierres concurrentes de la misma caja.
+      await bloquearCaja(tx, caja.id);
 
       // Pre-validar stock, precio de lista y costo snapshot.
       const detalles: Array<{
@@ -337,16 +361,19 @@ export class VentasController {
         tipoComprobante === TipoComprobante.factura
       ) {
         serie = tipoComprobante === TipoComprobante.factura ? "F001" : "B001";
-        const ultima = await tx.venta.findFirst({
-          where: { serie },
-          orderBy: { numero_correlativo: "desc" },
-          select: { numero_correlativo: true },
-        });
-        numeroCorrelativo = (ultima?.numero_correlativo ?? 0) + 1;
+        // Secuencia PostgreSQL: nextval() es atómico, elimina la carrera de
+        // MAX+1 lógico y garantiza correlativos únicos bajo concurrencia (F1.4).
+        // `serie` es un valor controlado (B001/F001), seguro para SQL crudo.
+        const fila = await tx.$queryRaw<Array<{ siguiente: number }>>(
+          Prisma.raw(`SELECT nextval('correlativo_${serie}')::int AS siguiente`)
+        );
+        numeroCorrelativo = fila[0]?.siguiente ?? 0;
         comprobanteRef = `${serie}-${String(numeroCorrelativo).padStart(8, "0")}`;
       }
 
-      const venta = await tx.venta.create({
+      let venta: Awaited<ReturnType<typeof tx.venta.create>>;
+      try {
+        venta = await tx.venta.create({
         data: {
           caja_sesion_id: caja.id,
           vendedor_id: vendedorId,
@@ -363,6 +390,7 @@ export class VentasController {
           venta_bajo_costo: bajoCosto,
           total: totalFinal,
           idempotency_key: dto.idempotency_key || null,
+          idempotency_hash: idempotencyHash,
           items: {
             create: detalles.map((d, idx) => {
               // Factor de descuento aplicado proporcionalmente a cada ítem.
@@ -421,7 +449,27 @@ export class VentasController {
           },
           pagos: true,
         },
-      });
+        });
+      } catch (error) {
+        // Conflicto de idempotencia (índice único): otra petición con la misma
+        // clave ganó la carrera. Devolvemos la venta original en vez de fallar.
+        const esP2002 = (error as { code?: string }).code === "P2002";
+        if (esP2002 && dto.idempotency_key) {
+          const existente = await tx.venta.findUnique({
+            where: { idempotency_key: dto.idempotency_key },
+            include: {
+              items: {
+                include: {
+                  producto: { select: { nombre: true, unidad_medida: true } },
+                },
+              },
+              pagos: true,
+            },
+          });
+          if (existente) return existente;
+        }
+        throw error;
+      }
 
       // Descontar stock con movimiento de inventario (atómico).
       for (const detalle of detalles) {
@@ -487,9 +535,6 @@ export class VentasController {
         include: { items: true },
       });
       if (!venta) throw new NotFoundException("Venta no encontrada");
-      if (venta.anulada) {
-        throw new BadRequestException("Esta venta ya fue anulada");
-      }
 
       if (usuario.rol === "cajero") {
         const caja = await tx.cajaSesion.findFirst({
@@ -507,6 +552,21 @@ export class VentasController {
         }
       }
 
+      // Claim atómico: solo una transacción concurrente puede marcar la venta
+      // como anulada. Si ya lo estaba (count 0), aborta antes de revertir stock.
+      const claim = await tx.venta.updateMany({
+        where: { id, anulada: false },
+        data: {
+          anulada: true,
+          anulada_en: new Date(),
+          anulada_por_id: usuarioId,
+          motivo_anulacion: dto.motivo,
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException("Esta venta ya fue anulada");
+      }
+
       // Revertir stock con movimiento.
       for (const item of venta.items) {
         await registrarMovimientoInventario({
@@ -520,14 +580,8 @@ export class VentasController {
         });
       }
 
-      return tx.venta.update({
+      return tx.venta.findUnique({
         where: { id },
-        data: {
-          anulada: true,
-          anulada_en: new Date(),
-          anulada_por_id: usuarioId,
-          motivo_anulacion: dto.motivo,
-        },
         include: {
           items: {
             include: {

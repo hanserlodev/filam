@@ -30,6 +30,7 @@ import { Roles } from "../auth/roles.decorator";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
 import { PrismaService } from "../prisma/prisma.service";
 import { toDecimal, toMoney } from "../common/decimal";
+import { bloquearCaja } from "./caja-lock.helper";
 
 class AbrirCajaDto {
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -195,6 +196,10 @@ export class CajaController {
         );
       }
 
+      // Bloquea la fila: serializa retiros concurrentes para que dos retiros
+      // simultáneos no sobregiren el efectivo disponible (F1.2).
+      await bloquearCaja(tx, caja.id);
+
       if (dto.tipo === TipoMovimientoCaja.retiro) {
         const resumen = await this.calcularResumenTx(tx, caja.id, caja.monto_apertura);
         const efectivoEsperado = toDecimal(resumen.efectivo_esperado);
@@ -241,6 +246,10 @@ export class CajaController {
       if (sesion.usuario_id !== usuarioId) {
         throw new BadRequestException("Solo el cajero que abrió la caja puede cerrarla");
       }
+
+      // Bloquea la fila: impide que ventas o movimientos se registren mientras
+      // se calcula el arqueo, y serializa dos cierres concurrentes (F1.3).
+      await bloquearCaja(tx, sesion.id);
 
       const resumen = await this.calcularResumenTx(tx, sesion.id, sesion.monto_apertura);
       const efectivoEsperado = toMoney(resumen.efectivo_esperado as Prisma.Decimal);

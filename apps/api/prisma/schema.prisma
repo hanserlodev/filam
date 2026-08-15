@@ -198,6 +198,7 @@ model Venta {
   venta_bajo_costo  Boolean          @default(false)
   total             Decimal          @db.Decimal(10, 2)
   idempotency_key   String?          @unique @db.VarChar(100)
+  idempotency_hash  String?          @db.VarChar(64)
   serie             String?          @db.VarChar(10)
   numero_correlativo Int?            @map("numero_correlativo")
   comprobante_ref   String?

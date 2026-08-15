@@ -44,6 +44,7 @@ export function createPrismaMock<T = unknown>(overrides: DeepPartial<T> = {}) {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
     },
     ventaItem: {
@@ -70,6 +71,7 @@ export function createPrismaMock<T = unknown>(overrides: DeepPartial<T> = {}) {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     compraItem: {
       findMany: jest.fn(),
@@ -95,6 +97,7 @@ export function createPrismaMock<T = unknown>(overrides: DeepPartial<T> = {}) {
       create: jest.fn(),
     },
     $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(mock)),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: "caja-lock", estado: "abierta" }]),
     $disconnect: jest.fn(),
   };
 

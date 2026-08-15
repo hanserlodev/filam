@@ -219,6 +219,51 @@ describe("VentasController", () => {
         controller.crear(baseDto as never, { user: { sub: "vendedor-1" } } as never)
       ).rejects.toThrow(BadRequestException);
     });
+
+    it("devuelve la venta existente si la clave idempotente ya está registrada", async () => {
+      const ventaOriginal = { id: "venta-original", idempotency_key: "clave-1" };
+      prisma.venta.findUnique.mockResolvedValue(ventaOriginal as never);
+
+      const result = await controller.crear(
+        {
+          idempotency_key: "clave-1",
+          pagos: [{ metodo_pago: MetodoPago.efectivo, monto: 57 }],
+          total_final: 57,
+          items: [{ producto_id: "prod-1", cantidad: 2 }],
+        } as never,
+        { user: { sub: "vendedor-1" } } as never
+      );
+
+      expect(result).toEqual(ventaOriginal);
+      expect(prisma.venta.create).not.toHaveBeenCalled();
+    });
+
+    it("si el create falla por P2002 (carrera de idempotencia), devuelve la venta existente", async () => {
+      prisma.cajaSesion.findFirst.mockResolvedValue(cajaAbierta);
+      prisma.producto.findUnique.mockResolvedValue(martillo);
+      const p2002 = new Error("Unique constraint failed");
+      (p2002 as { code?: string }).code = "P2002";
+      prisma.venta.create.mockRejectedValue(p2002);
+      prisma.venta.findUnique.mockResolvedValue({
+        id: "venta-ganadora",
+        items: [],
+        pagos: [],
+      } as never);
+
+      const result = await controller.crear(
+        {
+          idempotency_key: "clave-carrera",
+          pagos: [{ metodo_pago: MetodoPago.efectivo, monto: 57 }],
+          total_final: 57,
+          items: [{ producto_id: "prod-1", cantidad: 2 }],
+        } as never,
+        { user: { sub: "vendedor-1" } } as never
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({ id: "venta-ganadora" })
+      );
+    });
   });
 
   describe("listar", () => {
@@ -317,6 +362,7 @@ describe("VentasController", () => {
     it("lanza BadRequest si la venta ya está anulada", async () => {
       prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
       prisma.venta.findFirst.mockResolvedValue({ ...ventaConItems, anulada: true });
+      prisma.venta.updateMany.mockResolvedValue({ count: 0 });
       await expect(
         controller.anular("venta-1", { motivo: "cliente se arrepintió" } as never, {
           user: { sub: "admin-1" },
@@ -330,20 +376,19 @@ describe("VentasController", () => {
         ...ventaConItems,
         items: [{ producto_id: "prod-1", cantidad: { toNumber: () => 2, negated: () => ({ toNumber: () => -2 }) } }],
       });
-      prisma.producto.findUnique.mockResolvedValue({ id: "prod-1", stock: 23 });
-      prisma.producto.update.mockResolvedValue({ id: "prod-1" });
-      prisma.venta.update.mockResolvedValue({ ...ventaConItems, anulada: true });
+      prisma.venta.updateMany.mockResolvedValue({ count: 1 });
+      prisma.producto.updateMany.mockResolvedValue({ count: 1 });
+      prisma.producto.findUnique.mockResolvedValue({ id: "prod-1", stock: 25 });
+      prisma.venta.findUnique.mockResolvedValue({ ...ventaConItems, anulada: true });
       prisma.inventarioMovimiento.create.mockResolvedValue({ id: "mov-1" });
 
       await controller.anular("venta-1", { motivo: "error de cobro" } as never, {
         user: { sub: "admin-1" },
       } as never);
 
-      expect(prisma.producto.update).toHaveBeenCalled();
-      expect(prisma.inventarioMovimiento.create).toHaveBeenCalled();
-      expect(prisma.venta.update).toHaveBeenCalledWith(
+      expect(prisma.venta.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "venta-1" },
+          where: { id: "venta-1", anulada: false },
           data: expect.objectContaining({
             anulada: true,
             anulada_por_id: "admin-1",
@@ -351,6 +396,28 @@ describe("VentasController", () => {
           }),
         })
       );
+      expect(prisma.producto.updateMany).toHaveBeenCalled();
+      expect(prisma.inventarioMovimiento.create).toHaveBeenCalled();
+    });
+
+    it("no revierte stock si el claim atómico no se concede (concurrencia)", async () => {
+      // Simula que otra transacción ya anuló la venta: updateMany devuelve count 0.
+      prisma.usuario.findUnique.mockResolvedValue({ rol: "administrador", activo: true });
+      prisma.venta.findFirst.mockResolvedValue({
+        ...ventaConItems,
+        items: [{ producto_id: "prod-1", cantidad: { toNumber: () => 2, negated: () => ({ toNumber: () => -2 }) } }],
+      });
+      prisma.venta.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        controller.anular("venta-1", { motivo: "doble envío" } as never, {
+          user: { sub: "admin-1" },
+        } as never)
+      ).rejects.toThrow("ya fue anulada");
+
+      // Nunca debe revertir stock ni registrar movimiento.
+      expect(prisma.producto.updateMany).not.toHaveBeenCalled();
+      expect(prisma.inventarioMovimiento.create).not.toHaveBeenCalled();
     });
 
     it("el cajero solo puede anular ventas de su caja abierta actual", async () => {

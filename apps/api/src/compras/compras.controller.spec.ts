@@ -50,6 +50,14 @@ describe("ComprasController", () => {
 
   it("crea la compra, registra movimiento e incrementa stock y costo", async () => {
     prisma.compra.create.mockResolvedValue({ id: "compra-1", items: [] });
+    prisma.producto.updateMany.mockResolvedValue({ count: 1 });
+    prisma.producto.findUnique.mockResolvedValue({
+      id: "p1",
+      unidad_medida: "unidad",
+      stock: 20,
+      costo: 5,
+      precio: 8,
+    });
     prisma.inventarioMovimiento.create.mockResolvedValue({ id: "mov-1" });
 
     await controller.crear(
@@ -113,16 +121,13 @@ describe("ComprasController", () => {
           { producto_id: "p1", cantidad: { toNumber: () => 10, negated: () => ({ toNumber: () => -10 }) } },
         ],
       });
+      prisma.compra.updateMany.mockResolvedValue({ count: 1 });
+      prisma.producto.updateMany.mockResolvedValue({ count: 1 });
       prisma.producto.findUnique.mockResolvedValue({
         id: "p1",
-        stock: 20,
+        stock: 10,
       });
-      prisma.producto.update.mockResolvedValue({ id: "p1" });
       prisma.inventarioMovimiento.create.mockResolvedValue({ id: "mov-1" });
-      prisma.compra.update.mockResolvedValue({
-        id: "compra-1",
-        estado: "anulada",
-      });
 
       const result = await controller.anular(
         "compra-1",
@@ -138,9 +143,9 @@ describe("ComprasController", () => {
           }),
         })
       );
-      expect(prisma.compra.update).toHaveBeenCalledWith(
+      expect(prisma.compra.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "compra-1" },
+          where: { id: "compra-1", estado: "registrada" },
           data: expect.objectContaining({ estado: "anulada" }),
         })
       );
