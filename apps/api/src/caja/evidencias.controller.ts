@@ -12,7 +12,13 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { IsString, MaxLength } from "class-validator";
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from "class-validator";
 import { AuthenticatedRequest } from "../auth/authenticated-request";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -27,6 +33,9 @@ class SubirEvidenciaDto {
   @MaxLength(50)
   tipo_archivo?: string;
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   tamano_bytes?: number;
 }
 

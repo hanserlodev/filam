@@ -194,12 +194,35 @@ describe("CajaController", () => {
           data: expect.objectContaining({
             monto_cierre: expect.anything(),
             diferencia: expect.anything(),
+            monto_esperado: expect.anything(),
+            monto_operativo: expect.anything(),
             estado: "cerrada",
             cerrada_en: expect.any(Date),
           }),
         })
       );
       expect(result).toBeDefined();
+    });
+
+    it("persiste monto_esperado como efectivo y monto_operativo como total con digital", async () => {
+      prisma.cajaSesion.findUnique.mockResolvedValue(sesionAbierta);
+      mockResumenCaja();
+      prisma.cajaSesion.updateMany.mockResolvedValue({ count: 1 });
+      prisma.cajaSesion.findUnique.mockResolvedValueOnce(sesionAbierta).mockResolvedValueOnce({
+        ...sesionAbierta,
+        estado: "cerrada",
+      });
+
+      await controller.cerrar(
+        "caja-1",
+        { monto_cierre: 257 } as never,
+        { user: { sub: "user-1" } } as never
+      );
+
+      const data = prisma.cajaSesion.updateMany.mock.calls[0][0].data;
+      // efectivo esperado = 200 + 57 = 257; operativo = 200 + 57 + 28.5 = 285.5
+      expect(data.monto_esperado.toString()).toBe("257");
+      expect(data.monto_operativo.toString()).toBe("285.5");
     });
 
     it("exige motivo si la diferencia supera el umbral", async () => {

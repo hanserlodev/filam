@@ -128,8 +128,9 @@ export default function CajaPage() {
     setSubiendo(true);
     try {
       const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      const ruta = `${sesionId}/${crypto.randomUUID()}.jpg`;
+      const userId = session.data.session?.user.id;
+      if (!userId) throw new Error("Sesión de usuario no disponible");
+      const ruta = `${userId}/${sesionId}/${crypto.randomUUID()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from("evidencias-caja")
         .upload(ruta, file, { cacheControl: "3600", upsert: false });

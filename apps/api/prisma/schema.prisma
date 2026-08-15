@@ -120,6 +120,7 @@ model CajaSesion {
   total_ingresos Decimal?    @db.Decimal(10, 2)
   total_retiros  Decimal?    @db.Decimal(10, 2)
   monto_esperado Decimal?    @db.Decimal(10, 2)
+  monto_operativo Decimal?   @db.Decimal(10, 2)
   motivo_diferencia String?  @db.VarChar(300)
   abierta_en     DateTime    @default(now()) @db.Timestamptz(6)
   cerrada_en     DateTime?   @db.Timestamptz(6)

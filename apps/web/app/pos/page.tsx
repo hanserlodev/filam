@@ -118,18 +118,22 @@ export default function PosPage() {
   const [movMonto, setMovMonto] = useState("");
   const [movMotivo, setMovMotivo] = useState("");
   const [fotoPendiente, setFotoPendiente] = useState(false);
+  const [cajaFotoId, setCajaFotoId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   async function cargarCaja() {
     if (!token) return;
     try {
-      const cajaRes = await api.get<CajaSesion | null>("/caja/abierta", token);
+      const [cajaRes, sesiones] = await Promise.all([
+        api.get<CajaSesion | null>("/caja/abierta", token),
+        api.get<CajaSesion[]>("/caja/mis-sesiones", token),
+      ]);
       setCaja(cajaRes);
-      setFotoPendiente(
-        !!cajaRes?.estado &&
-          cajaRes.estado !== "abierta" &&
-          (cajaRes.evidencias ?? []).length === 0
+      const pendiente = sesiones.find(
+        (sesion) => sesion.estado === "cerrada" && !(sesion.evidencias ?? []).length
       );
+      setCajaFotoId(pendiente?.id ?? null);
+      setFotoPendiente(Boolean(pendiente));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -140,10 +144,16 @@ export default function PosPage() {
     Promise.all([
       api.get<Producto[]>("/productos", token),
       api.get<CajaSesion | null>("/caja/abierta", token),
+      api.get<CajaSesion[]>("/caja/mis-sesiones", token),
     ])
-      .then(([prods, cajaRes]) => {
+      .then(([prods, cajaRes, sesiones]) => {
         setProductos(prods.filter((p) => p.activo !== false));
         setCaja(cajaRes);
+        const pendiente = sesiones.find(
+          (sesion) => sesion.estado === "cerrada" && !(sesion.evidencias ?? []).length
+        );
+        setCajaFotoId(pendiente?.id ?? null);
+        setFotoPendiente(Boolean(pendiente));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -313,6 +323,7 @@ export default function PosPage() {
       setOpenCajaModal(false);
       setMontoCierre("");
       setMotivoDiferencia("");
+      setCajaFotoId(caja.id);
       setFotoPendiente(true);
     } catch (e) {
       setError((e as Error).message);
@@ -339,7 +350,8 @@ export default function PosPage() {
   }
 
   async function subirFoto(event: React.ChangeEvent<HTMLInputElement>) {
-    if (!caja || !token) return;
+    const sesionId = caja?.id ?? cajaFotoId;
+    if (!sesionId || !token) return;
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -353,15 +365,16 @@ export default function PosPage() {
     setError("");
     try {
       const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      const ruta = `${caja.id}/${crypto.randomUUID()}.jpg`;
+      const userId = session.data.session?.user.id;
+      if (!userId) throw new Error("Sesión de usuario no disponible");
+      const ruta = `${userId}/${sesionId}/${crypto.randomUUID()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from("evidencias-caja")
         .upload(ruta, file, { cacheControl: "3600", upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
       await api.post(
-        `/caja/sesion/${caja.id}/evidencia`,
+        `/caja/sesion/${sesionId}/evidencia`,
         {
           ruta_archivo: ruta,
           tipo_archivo: file.type,
@@ -370,6 +383,7 @@ export default function PosPage() {
         token
       );
       setFotoPendiente(false);
+      setCajaFotoId(null);
     } catch (e) {
       setError((e as Error).message);
     }
