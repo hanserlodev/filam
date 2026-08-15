@@ -364,17 +364,46 @@ export class VentasController {
           total: totalFinal,
           idempotency_key: dto.idempotency_key || null,
           items: {
-            create: detalles.map((d) => ({
-              producto_id: d.producto_id,
-              cantidad: d.cantidad,
-              precio_lista: d.precio_lista,
-              descuento_monto: d.cantidad
-                .mul(d.precio_lista)
-                .mul(descuentoMonto)
-                .div(subtotalVenta.isZero() ? 1 : subtotalVenta),
-              precio_unitario: d.precio_lista,
-              costo_unitario: d.costo_unitario,
-            })),
+            create: detalles.map((d, idx) => {
+              // Factor de descuento aplicado proporcionalmente a cada ítem.
+              const importeLista = d.precio_lista.mul(d.cantidad);
+              const descuentoItem = subtotalVenta.isZero()
+                ? new Prisma.Decimal(0)
+                : importeLista.mul(descuentoMonto).div(subtotalVenta);
+              const importeFinal = importeLista.minus(descuentoItem);
+              let precioFinal = importeFinal.div(d.cantidad);
+
+              // Ajuste de redondeo: el último ítem absorbe la diferencia
+              // para que la suma de importes coincida exactamente con el total.
+              if (idx === detalles.length - 1) {
+                const sumaPrevia = detalles
+                  .slice(0, idx)
+                  .reduce(
+                    (sum, prev, prevIdx) => {
+                      const impLista = prev.precio_lista.mul(prev.cantidad);
+                      const descPrev = subtotalVenta.isZero()
+                        ? new Prisma.Decimal(0)
+                        : impLista.mul(descuentoMonto).div(subtotalVenta);
+                      return sum.plus(impLista.minus(descPrev));
+                    },
+                    new Prisma.Decimal(0)
+                  );
+                const resto = totalFinal.minus(sumaPrevia);
+                precioFinal = resto.div(d.cantidad);
+              }
+
+              precioFinal = precioFinal.toDecimalPlaces(2);
+              return {
+                producto_id: d.producto_id,
+                cantidad: d.cantidad,
+                precio_lista: d.precio_lista,
+                descuento_monto: importeLista
+                  .minus(precioFinal.mul(d.cantidad))
+                  .toDecimalPlaces(2),
+                precio_unitario: precioFinal,
+                costo_unitario: d.costo_unitario,
+              };
+            }),
           },
           pagos: {
             create: dto.pagos.map((p) => ({
