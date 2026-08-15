@@ -107,7 +107,7 @@ const METODOS: Array<{ id: MetodoPago; label: string; icon: typeof Banknote }> =
 
 export default function PosPage() {
   const router = useRouter();
-  const { token } = useAccessToken();
+  const { token, loading: loadingSesion } = useAccessToken();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<VentaItem[]>([]);
@@ -184,6 +184,14 @@ export default function PosPage() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [token]);
+
+  // Guard de sesión (F3.1): sin token redirige a login en vez de quedarse
+  // cargando indefinidamente.
+  useEffect(() => {
+    if (!loadingSesion && !token) {
+      router.replace("/login");
+    }
+  }, [loadingSesion, token, router]);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -437,7 +445,7 @@ export default function PosPage() {
     router.replace("/login");
   }
 
-  if (loading) {
+  if (loadingSesion || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-500">Cargando POS...</div>
@@ -693,7 +701,12 @@ export default function PosPage() {
       </div>
 
       {openCajaModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={caja ? "Tu caja" : "Abrir caja"}
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        >
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">
@@ -1079,7 +1092,12 @@ export default function PosPage() {
             />
           </div>
 
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Boleta emitida"
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          >
             <div className="bg-white rounded-xl p-4 shadow-xl w-full max-w-4xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900">

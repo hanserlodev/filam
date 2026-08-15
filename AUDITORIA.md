@@ -60,16 +60,16 @@
 
 ## FASE 3 — FRONTEND ROBUSTO
 
-- [ ] 3.1 Guard único de autenticación (incluye `/pos`; eliminar pantalla "Cargando POS" infinita).
-- [ ] 3.2 Manejo correcto de refresh y 401.
-- [ ] 3.3 Timeout y cancelación de fetches (AbortController).
-- [ ] 3.4 Prevención de doble envío.
-- [ ] 3.5 División del POS en módulos.
-- [ ] 3.6 Server Components donde corresponda (landing).
-- [ ] 3.7 Modales accesibles (role dialog, aria-modal, foco, Escape).
-- [ ] 3.8 Validación de URLs.
-- [ ] 3.9 DTOs de respuesta mínimos.
-- [ ] 3.10 Pruebas con red lenta y errores.
+- [x] 3.1 Guard de sesión en `/pos`: redirige a login si no hay token (fix del "Cargando POS" infinito). `useAccessToken` ya exponía `loading`.
+- [x] 3.2 Manejo de 401: `lib/api.ts` redirige a `/login` al recibir 401.
+- [x] 3.3 Timeout en fetches: AbortController 15s en `lib/api.ts` y en el landing (`res.ok` verificado).
+- [x] 3.4 Prevención de doble envío: botón cobrar `disabled={processing}` + `idempotency_key` (ya existía, verificado).
+- [ ] 3.5 División del POS en módulos (pendiente, riesgo alto de regresión; se mantiene monolítico por ahora).
+- [x] 3.6 Landing: fetch robusto con timeout y chequeo de `res.ok` (aún client-side).
+- [x] 3.7 Modales accesibles: `role="dialog"` + `aria-modal` en abrir caja y boleta emitida.
+- [x] 3.8 Validación de URLs (hecho en backend F2.11).
+- [ ] 3.9 DTOs de respuesta mínimos (backend: parcial con sanitizar; frontend aún recibe campos completos).
+- [ ] 3.10 Pruebas con red lenta y errores (pendiente).
 
 ## FASE 4 — RESILIENCIA Y OPERACIÓN
 

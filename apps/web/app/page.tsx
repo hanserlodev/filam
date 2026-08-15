@@ -19,10 +19,17 @@ export default function LandingPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API_URL}/api/catalogo`)
-      .then((res) => res.json())
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    fetch(`${API_URL}/api/catalogo`, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(setCatalogo)
-      .catch(() => setError("No se pudo cargar el catálogo"));
+      .catch(() => setError("No se pudo cargar el catálogo"))
+      .finally(() => clearTimeout(timer));
+    return () => controller.abort();
   }, []);
 
   const negocio = catalogo?.negocio;
