@@ -4,6 +4,19 @@
 > Estado: pendiente de remediación por fases.
 > Documento operativo: avanzar las fases en orden; cada fase se completa con evidencia verificable antes de pasar a la siguiente.
 
+## Canal online — Fase C1: Carrito + pedido por WhatsApp
+
+Ampliación de alcance aprobada (17 ago): carrito de compras público tipo AgustoMarket que genera un pedido por WhatsApp, con confirmación manual del vendedor (precio, stock, delivery y pago). NO usa pasarela de pagos ni delivery automático en esta fase.
+
+- [x] C1.1 Estado de carrito con persistencia en `localStorage` (`apps/web/lib/cart-context.tsx`).
+- [x] C1.2 Botón "Agregar al carrito" + cantidades fraccionarias en `ProductShowcase.tsx`.
+- [x] C1.3 Panel lateral del carrito (`CartDrawer.tsx`) con contador en `Navbar.tsx`.
+- [x] C1.4 Formulario nombre/teléfono/modalidad (recojo/delivery) + generación de mensaje WhatsApp (`apps/web/lib/wa-pedido.ts`).
+- [x] C1.5 Build/typecheck/lint OK; mensaje validado (normaliza teléfono → 51..., unidades fraccionarias).
+- [x] C1.6 Número de WhatsApp desde `configuracion.telefono` (950 307 510 configurado).
+- [ ] C2 (futuro): panel interno de pedidos, estados, reserva de stock.
+- [ ] C3 (futuro): clientes autenticados, delivery, pagos online, webhooks, reembolsos.
+
 ## Resultado Ejecutivo
 
 | Área | Estado | Riesgo |

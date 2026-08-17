@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Menu, X, ShoppingCart, Phone } from "lucide-react";
 import Logo from "./Logo";
+import { useCart } from "@/lib/cart-context";
 
 const NAV_LINKS = [
   { href: "#inicio", label: "Inicio" },
@@ -20,6 +21,7 @@ interface NavbarProps {
 export default function Navbar({ telefono }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const { cantidadItems, abrirCarrito } = useCart();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -63,11 +65,25 @@ export default function Navbar({ telefono }: NavbarProps) {
               {telefono}
             </a>
           )}
+          <button
+            onClick={abrirCarrito}
+            className="relative flex items-center gap-2 text-sm font-semibold text-steel-700 hover:text-primary-600 transition-colors"
+            aria-label={`Abrir carrito (${cantidadItems} artículos)`}
+          >
+            <span className="w-9 h-9 bg-secondary-500 rounded-full flex items-center justify-center">
+              <ShoppingCart size={16} className="text-white" />
+            </span>
+            Carrito
+            {cantidadItems > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 bg-primary-600 text-white text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {cantidadItems}
+              </span>
+            )}
+          </button>
           <Link
             href="/login"
             className="btn-secondary !py-2.5 !px-5 text-sm"
           >
-            <ShoppingCart size={16} />
             Ingresar al POS
           </Link>
         </div>
@@ -94,12 +110,22 @@ export default function Navbar({ telefono }: NavbarProps) {
                 {link.label}
               </a>
             ))}
+            <button
+              onClick={() => {
+                setOpen(false);
+                abrirCarrito();
+              }}
+              className="mt-2 btn-secondary w-full text-sm flex items-center justify-center gap-2"
+            >
+              <ShoppingCart size={16} />
+              Ver carrito
+              {cantidadItems > 0 && ` (${cantidadItems})`}
+            </button>
             <Link
               href="/login"
               onClick={() => setOpen(false)}
-              className="mt-2 btn-secondary w-full text-sm"
+              className="mt-1 btn-secondary w-full text-sm"
             >
-              <ShoppingCart size={16} />
               Ingresar al POS
             </Link>
             {telefono && (

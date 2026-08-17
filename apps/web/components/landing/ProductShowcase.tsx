@@ -6,10 +6,11 @@ import {
   Package,
   AlertTriangle,
   ShoppingCart,
-  Check,
+  Plus,
 } from "lucide-react";
 import type { CatalogoProducto } from "@/lib/catalogo-types";
 import { formatCurrency } from "@/lib/utils";
+import { useCart } from "@/lib/cart-context";
 
 interface ProductShowcaseProps {
   productos: CatalogoProducto[];
@@ -21,6 +22,7 @@ export default function ProductShowcase({
   catActiva,
 }: ProductShowcaseProps) {
   const [query, setQuery] = useState("");
+  const { agregar } = useCart();
 
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -120,20 +122,31 @@ export default function ProductShowcase({
                       <p className="text-xs text-steel-400 mt-1">{presentacion}</p>
                     )}
 
-                    <div className="flex items-end justify-between mt-4">
-                      <div>
-                        <p className="text-[11px] text-steel-400 font-medium uppercase tracking-wide">
-                          Precio
-                        </p>
-                        <p className="text-2xl font-bold text-steel-900 tracking-tight">
-                          {formatCurrency(p.precio)}
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-                        <Check size={12} />
-                        En stock
-                      </span>
+                  <div className="flex items-end justify-between mt-4">
+                    <div>
+                      <p className="text-[11px] text-steel-400 font-medium uppercase tracking-wide">
+                        Precio
+                      </p>
+                      <p className="text-2xl font-bold text-steel-900 tracking-tight">
+                        {formatCurrency(p.precio)}
+                      </p>
                     </div>
+                    {agotado ? (
+                      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        <AlertTriangle size={12} />
+                        Agotado
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => agregar(p)}
+                        className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-2 rounded-full transition-colors active:scale-95"
+                        aria-label={`Agregar ${p.nombre} al carrito`}
+                      >
+                        <Plus size={14} />
+                        Agregar
+                      </button>
+                    )}
+                  </div>
                   </div>
                 </div>
               );
